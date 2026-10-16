@@ -1,0 +1,78 @@
+name: Android APKs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "config/**"
+      - "scripts/**"
+      - "patches/**"
+      - "overlay/**"
+      - ".github/workflows/android.yml"
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: APK (${{ matrix.abi }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm, aarch64]
+    env:
+      WORK_DIR: /mnt/bingetv-work
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        # Kodi's depends and build need far more than the runner's ~14 GB free.
+        # The preinstalled Android SDK stays: the build uses it.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/ghc /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/boost /usr/local/lib/node_modules /usr/share/swift
+          sudo mkdir -p "$WORK_DIR" && sudo chown "$USER" "$WORK_DIR"
+          df -h / /mnt
+
+      - name: Build packages (Kodi's README.Android.md)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf bison build-essential curl default-jdk flex gawk git gperf \
+            lib32stdc++6 lib32z1 lib32z1-dev libcurl4-openssl-dev unzip zip zlib1g-dev
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android NDK, platform and build tools
+        run: |
+          source config/build.env
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "ndk;$ANDROID_NDK_VERSION" "$ANDROID_PLATFORM" "$ANDROID_BUILD_TOOLS" > /dev/null
+          echo "KODI_TAG=$KODI_TAG" >> "$GITHUB_ENV"
+
+      - name: Cache source tarballs
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WORK_DIR }}/tarballs
+          key: tarballs-${{ env.KODI_TAG }}-${{ matrix.abi }}
+          restore-keys: tarballs-${{ env.KODI_TAG }}-
+
+      - name: Build
+        run: scripts/build-android.sh ${{ matrix.abi }}
+
+      - name: Disk left
+        if: always()
+        run: df -h / /mnt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bingetv-${{ matrix.abi }}
+          path: ${{ env.WORK_DIR }}/out/*.apk
+          if-no-files-found: error
