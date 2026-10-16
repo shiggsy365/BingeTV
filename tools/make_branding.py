@@ -1,166 +1,108 @@
 #!/usr/bin/env python3
-"""Generate BingeTV's icons, banners and splash screens into overlay/.
+"""Make BingeTV's icons, banners and splash screens from branding/logo-source.jpg.
 
-These replace Kodi's own images. Kodi's logo and name are trademarks of the
-XBMC Foundation, so BingeTV may not ship them. Every image is drawn from the
-one design below: a TV screen with a play button on a violet-to-pink gradient,
-plus the "BingeTV" wordmark. Run it again after changing the design, and
-commit the files it writes:
+These replace Kodi's own images (Kodi's logo and name are trademarks of the
+XBMC Foundation, so BingeTV may not ship them). The source is the BingeTV logo
+on its dark background: the splash screens use it whole, the TV banner a crop
+around the wordmark, and the icons the play-button "B". Where a logo has to
+sit on something else, it's lifted off the background by brightness (the
+background is dark grey; the logo red and white, with a glow).
 
     python3 tools/make_branding.py
 
-Needs Pillow and the Roboto font (Apache 2.0); the build itself needs neither.
+Needs Pillow; the build itself needs neither this nor the source image.
+Writes into overlay/ (and, given a skin folder, its icon and fanart):
+
+    python3 tools/make_branding.py --skin ../KodiStremioBridge/skin.bingetv
 """
 
+import argparse
 import os
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "overlay")
-FONT = "/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Black.ttf"
+HERE = os.path.dirname(os.path.abspath(__file__))
+SOURCE = os.path.join(HERE, "..", "branding", "logo-source.jpg")
+ROOT = os.path.join(HERE, "..", "overlay")
 
-INK = (11, 16, 32)            # page background
-VIOLET = (124, 58, 237)
-PINK = (236, 72, 153)
-WHITE = (255, 255, 255)
-
-# The mark, on a 256 x 256 grid (also the adaptive icon's vector viewport).
-SCREEN_OUTER = (48, 60, 208, 180, 26)   # x0, y0, x1, y1, corner radius
-SCREEN_INNER = (64, 76, 192, 164, 14)
-PLAY = ((110, 96), (110, 144), (152, 120))
-STAND = (100, 190, 156, 200, 5)
+INK = (21, 23, 28)                 # the logo's background, for icon tiles
+WORDMARK = (430, 515, 2400, 1015)  # "Binge" + the TV badge, in the source image
+LETTER_B = (440, 545, 830, 935)    # the play-button B (square)
 
 
-def gradient(size, start=VIOLET, end=PINK):
-    """A diagonal gradient from top left to bottom right."""
+def source():
+    return Image.open(SOURCE).convert("RGB")
+
+
+def lifted(img, floor=70, span=110):
+    """`img` with the dark background made transparent: a pixel's alpha follows
+    its brightest channel (background and grid lines fall below `floor`)."""
+    r, g, b = img.split()
+    alpha = ImageChops.lighter(ImageChops.lighter(r, g), b)
+    alpha = alpha.point(lambda v: max(0, min(255, (v - floor) * 255 // span)))
+    out = img.convert("RGBA")
+    out.putalpha(alpha)
+    return out
+
+
+def fit(img, size, scale=1.0, background=(0, 0, 0, 0)):
+    """`img` scaled to fit `scale` of `size`, centred on `background`."""
     w, h = size
-    small = Image.new("RGB", (64, 64))
-    px = small.load()
-    for y in range(64):
-        for x in range(64):
-            t = (x + y) / 126
-            px[x, y] = tuple(round(a + (b - a) * t) for a, b in zip(start, end))
-    return small.resize((w, h), Image.BICUBIC)
+    ratio = min(w * scale / img.width, h * scale / img.height)
+    small = img.resize((max(1, round(img.width * ratio)), max(1, round(img.height * ratio))), Image.LANCZOS)
+    canvas = Image.new("RGBA", size, background)
+    canvas.alpha_composite(small.convert("RGBA"), ((w - small.width) // 2, (h - small.height) // 2))
+    return canvas
 
 
-def mark_mask(size, scale=1.0):
-    """The mark in white on transparent, `size` square, the 256 grid scaled to fit
-    `scale` of it, centred."""
-    s = size / 256 * scale
-    off = size * (1 - scale) / 2
-    big = 4  # draw large and shrink: smooth edges
-    img = Image.new("L", (size * big, size * big), 0)
-    d = ImageDraw.Draw(img)
-
-    def box(x0, y0, x1, y1, r):
-        return [(off + x0 * s) * big, (off + y0 * s) * big, (off + x1 * s) * big, (off + y1 * s) * big], r * s * big
-
-    rect, r = box(*SCREEN_OUTER)
-    d.rounded_rectangle(rect, r, fill=255)
-    rect, r = box(*SCREEN_INNER)
-    d.rounded_rectangle(rect, r, fill=0)
-    d.polygon([((off + x * s) * big, (off + y * s) * big) for x, y in PLAY], fill=255)
-    rect, r = box(*STAND)
-    d.rounded_rectangle(rect, r, fill=255)
-    return img.resize((size, size), Image.LANCZOS)
+def rounded(img, radius_ratio=0.22):
+    big = 4
+    mask = Image.new("L", (img.width * big, img.height * big), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, img.width * big - 1, img.height * big - 1],
+                                           img.width * big * radius_ratio, fill=255)
+    out = img.convert("RGBA")
+    out.putalpha(ImageChops.multiply(out.getchannel("A"), mask.resize(img.size, Image.LANCZOS)))
+    return out
 
 
-def icon(size, rounded=True):
-    """Gradient square (rounded for launchers) with the white mark."""
-    img = gradient((size, size)).convert("RGBA")
-    img.paste(WHITE, (0, 0), mark_mask(size, 0.92))
-    if rounded:
-        mask = Image.new("L", (size * 4, size * 4), 0)
-        ImageDraw.Draw(mask).rounded_rectangle([0, 0, size * 4 - 1, size * 4 - 1], size * 4 * 0.22, fill=255)
-        img.putalpha(mask.resize((size, size), Image.LANCZOS))
-    return img
+def icon(size, src, rounded_corners=True):
+    """The B on an ink tile."""
+    tile = fit(src.crop(LETTER_B), (size, size), 0.86, INK + (255,))
+    return rounded(tile) if rounded_corners else tile
 
 
-def wordmark(draw, xy, height, anchor="lm"):
-    """ "Binge" in white and "TV" in pink, `height` pixels tall."""
-    font = ImageFont.truetype(FONT, height)
-    x, y = xy
-    binge_w = draw.textlength("Binge", font=font)
-    total = binge_w + draw.textlength("TV", font=font)
-    if anchor == "mm":
-        x -= total / 2
-    draw.text((x, y), "Binge", font=font, fill=WHITE, anchor="lm")
-    draw.text((x + binge_w, y), "TV", font=font, fill=PINK, anchor="lm")
-    return total
+def silhouette(size, src, scale=0.92):
+    """The B in white on transparent (Android tints notification and themed icons)."""
+    b = lifted(src.crop(LETTER_B), floor=90, span=60)
+    white = Image.new("RGBA", b.size, (255, 255, 255, 255))
+    white.putalpha(b.getchannel("A"))
+    return fit(white, (size, size), scale)
 
 
-def banner(size):
-    """Android TV launcher banner: mark and wordmark on dark ink."""
-    w, h = size
-    img = Image.new("RGB", size, INK)
-    mark = icon(int(h * 0.5))
-    margin = int(w * 0.07)
-    img.paste(mark, (margin, (h - mark.height) // 2), mark)
-    draw = ImageDraw.Draw(img)
-    left = margin + mark.width + int(h * 0.08)
-    # The largest wordmark that fits beside the mark (at most 30% of the height).
-    room = w - left - margin
-    height = int(h * 0.30)
-    while draw.textlength("BingeTV", font=ImageFont.truetype(FONT, height)) > room:
-        height -= 1
-    wordmark(draw, (left, h // 2), height)
-    return img
+def splash(src, size=(1920, 1080)):
+    w, h = src.size
+    crop_w = min(w, round(h * size[0] / size[1]))
+    left = (w - crop_w) // 2
+    return src.crop((left, 0, left + crop_w, h)).resize(size, Image.LANCZOS)
 
 
-def splash(size):
-    """Full-screen splash: dark, with a soft glow, the mark and the wordmark."""
-    w, h = size
-    img = Image.new("RGB", size, INK)
-    glow = gradient((w, h)).resize((w // 8, h // 8))
-    fade = Image.new("L", glow.size, 0)
-    ImageDraw.Draw(fade).ellipse([glow.width * 0.25, glow.height * 0.1, glow.width * 0.75, glow.height * 0.9], fill=70)
-    from PIL import ImageFilter
-    fade = fade.filter(ImageFilter.GaussianBlur(glow.width / 10))
-    img.paste(glow.resize(size, Image.BICUBIC), (0, 0), fade.resize(size, Image.BICUBIC))
-    mark = icon(int(h * 0.22))
-    img.paste(mark, ((w - mark.width) // 2, int(h * 0.30)), mark)
-    wordmark(ImageDraw.Draw(img), (w // 2, int(h * 0.64)), int(h * 0.09), anchor="mm")
-    return img
+def banner(src, size=(320, 180)):
+    """A 16:9 crop around the wordmark (Android TV launcher)."""
+    x0, y0, x1, y1 = WORDMARK
+    cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+    width = round((x1 - x0) * 1.12)
+    height = round(width * size[1] / size[0])
+    return src.crop((cx - width // 2, cy - height // 2, cx + width // 2, cy + height // 2)).resize(size, Image.LANCZOS)
 
 
-def silhouette(size):
-    """White mark on transparent (notification icon: Android tints it)."""
-    img = Image.new("RGBA", (size, size), WHITE + (0,))
-    img.putalpha(mark_mask(size, 1.0))
-    return img
-
-
-def vector(fill_attrs):
-    """The mark as an Android vector drawable (adaptive icon foreground)."""
-    def rrect(x0, y0, x1, y1, r):
-        return (f"M{x0 + r},{y0}H{x1 - r}A{r},{r} 0,0 1,{x1},{y0 + r}V{y1 - r}"
-                f"A{r},{r} 0,0 1,{x1 - r},{y1}H{x0 + r}A{r},{r} 0,0 1,{x0},{y1 - r}V{y0 + r}"
-                f"A{r},{r} 0,0 1,{x0 + r},{y0}Z")
-    play = "M{},{}L{},{}L{},{}Z".format(*[c for p in PLAY for c in p])
-    data = rrect(*SCREEN_OUTER) + rrect(*SCREEN_INNER) + play + rrect(*STAND)
-    # The adaptive icon's visible area is the middle 66%: shrink the mark into it.
-    return f"""<?xml version="1.0" encoding="utf-8"?>
-<!-- BingeTV mark (generated by tools/make_branding.py) -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="256"
-    android:viewportHeight="256">
-  <group android:scaleX="0.6" android:scaleY="0.6" android:translateX="51.2" android:translateY="51.2">
-    <path android:pathData="{data}" android:fillType="evenOdd" {fill_attrs}/>
-  </group>
-</vector>
-"""
-
-
-def save(img, *parts):
-    path = os.path.join(ROOT, *parts)
+def save(img, *parts, root=ROOT):
+    path = os.path.join(root, *parts)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if path.endswith(".jpg"):
         img.convert("RGB").save(path, quality=90, optimize=True)
     else:
         img.save(path, optimize=True)
-    print(os.path.relpath(path, ROOT))
+    print(os.path.relpath(path, root))
 
 
 def write(text, *parts):
@@ -171,37 +113,57 @@ def write(text, *parts):
     print(os.path.relpath(path, ROOT))
 
 
+def bitmap_drawable(name, comment):
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<!-- {comment} (generated by tools/make_branding.py) -->
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/{name}"
+    android:gravity="fill" />
+"""
+
+
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--skin", help="a skin folder to give the icon and fanart too")
+    args = parser.parse_args()
+    src = source()
+
     android = ("tools", "android", "packaging")
     for folder, size in (("ldpi", 36), ("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)):
-        save(icon(size), *android, "media", f"mipmap-{folder}", "ic_launcher.png")
-    save(banner((320, 180)), *android, "media", "mipmap-xhdpi", "banner.png")
-    save(icon(512, rounded=False), *android, "media", "playstore.png")
+        save(icon(size, src), *android, "media", f"mipmap-{folder}", "ic_launcher.png")
+    save(banner(src), *android, "media", "mipmap-xhdpi", "banner.png")
+    save(icon(512, src, rounded_corners=False), *android, "media", "playstore.png")
+
+    # Adaptive icon (Android 8+): ink background, the B lifted off its own background in front.
+    # 108 dp layers at xxxhdpi = 432 px; the middle 66% is always visible.
     drawable = (*android, "xbmc", "res", "drawable")
-    write(vector('android:fillColor="#FFFFFFFF"'), *drawable, "ic_launcher_foreground.xml")
-    write(vector('android:fillColor="#FFFFFFFF"'), *drawable, "ic_monochrome_foreground.xml")
+    save(fit(lifted(src.crop(LETTER_B)), (432, 432), 0.62), *android, "xbmc", "res", "drawable-nodpi",
+         "bingetv_icon_foreground.png")
+    save(silhouette(432, src, 0.58), *android, "xbmc", "res", "drawable-nodpi", "bingetv_icon_monochrome.png")
+    write(bitmap_drawable("bingetv_icon_foreground", "BingeTV icon foreground"), *drawable, "ic_launcher_foreground.xml")
+    write(bitmap_drawable("bingetv_icon_monochrome", "BingeTV themed icon"), *drawable, "ic_monochrome_foreground.xml")
     write(f"""<?xml version="1.0" encoding="utf-8"?>
 <!-- BingeTV icon background (generated by tools/make_branding.py) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-  <gradient android:angle="315"
-      android:startColor="#FF{VIOLET[0]:02X}{VIOLET[1]:02X}{VIOLET[2]:02X}"
-      android:endColor="#FF{PINK[0]:02X}{PINK[1]:02X}{PINK[2]:02X}"/>
+  <solid android:color="#FF{INK[0]:02X}{INK[1]:02X}{INK[2]:02X}"/>
 </shape>
 """, *drawable, "ic_launcher_background.xml")
-    save(silhouette(36), *drawable, "notif_icon.png")
-    save(icon(80), *drawable, "ic_recommendation_80dp.png")
+    save(silhouette(36, src), *drawable, "notif_icon.png")
+    save(icon(80, src), *drawable, "ic_recommendation_80dp.png")
 
     # Kodi's own media/: splash screens, window icons and the "vendor" images skins show.
-    save(splash((1920, 1080)), "media", "applaunch_screen.png")
-    save(splash((1920, 1080)), "media", "splash.jpg")
-    save(banner((320, 180)), "media", "banner.png")
+    save(splash(src), "media", "applaunch_screen.png")
+    save(splash(src), "media", "splash.jpg")
+    save(banner(src), "media", "banner.png")
     for size in (16, 32, 48, 80, 120, 256):
-        save(icon(size, rounded=False).convert("RGB"), "media", f"icon{size}x{size}.png")
-    save(silhouette(128), "media", "vendor_icon.png")
-    logo = Image.new("RGBA", (465, 128), (0, 0, 0, 0))
-    logo.paste(icon(108), (0, 10), icon(108))
-    wordmark(ImageDraw.Draw(logo), (126, 64), 74)
-    save(logo, "media", "vendor_logo.png")
+        save(icon(size, src, rounded_corners=False).convert("RGB"), "media", f"icon{size}x{size}.png")
+    save(silhouette(128, src), "media", "vendor_icon.png")
+    save(fit(lifted(src.crop(WORDMARK)), (465, 128)), "media", "vendor_logo.png")
+
+    if args.skin:
+        save(icon(256, src, rounded_corners=False).convert("RGB"), "resources", "icon.png", root=args.skin)
+        save(splash(src), "resources", "fanart.jpg", root=args.skin)
+        save(fit(lifted(src.crop(WORDMARK)), (840, 230)), "media", "bingetv", "logo.png", root=args.skin)
 
 
 if __name__ == "__main__":
