@@ -62,9 +62,13 @@ step "Overlay"
   cp "$f" "$SRC/$f"
 done)
 
-step "Debug signing key"
-# Phase 0 signs with Kodi's usual debug key; release signing comes with the rebrand.
-if [ ! -f "$HOME/.android/debug.keystore" ]; then
+step "Signing key"
+# Release builds pass the BingeTV key in KODI_ANDROID_STORE_FILE, KODI_ANDROID_KEY_ALIAS,
+# KODI_ANDROID_STORE_PASSWORD and KODI_ANDROID_KEY_PASSWORD (read by Kodi's packaging).
+# Without them Kodi signs with ~/.android/debug.keystore, made here if it's missing.
+if [ -n "${KODI_ANDROID_STORE_FILE:-}" ]; then
+  echo "Signing with $KODI_ANDROID_STORE_FILE"
+elif [ ! -f "$HOME/.android/debug.keystore" ]; then
   mkdir -p "$HOME/.android"
   keytool -genkey -keystore "$HOME/.android/debug.keystore" -v -alias androiddebugkey \
     -dname "CN=Android Debug,O=Android,C=US" -keypass android -storepass android \

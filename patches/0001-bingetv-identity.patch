@@ -1,0 +1,80 @@
+diff --git a/tools/android/packaging/xbmc/src/Splash.java.in b/tools/android/packaging/xbmc/src/Splash.java.in
+index 45ddd9b..8bd8295 100644
+--- a/tools/android/packaging/xbmc/src/Splash.java.in
++++ b/tools/android/packaging/xbmc/src/Splash.java.in
+@@ -110,17 +110,17 @@ public class Splash extends Activity
+           break;
+         case CheckingPermissionsInfo:
+           mSplash.mTextView.setText(getString(R.string.asking_permissions));
+-          showInfoDialog(getString(R.string.notice_dialog, "@APP_NAME@"), CheckingPermissions);
++          showInfoDialog(getString(R.string.notice_dialog, getString(R.string.app_name)), CheckingPermissions);
+           break;
+         case RecordAudioInfo:
+-          showInfoDialog(getString(R.string.record_audio_dialog, "@APP_NAME@"), RecordAudioPermission);
++          showInfoDialog(getString(R.string.record_audio_dialog, getString(R.string.app_name)), RecordAudioPermission);
+           break;
+         case RecordAudioPermission:
+           requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},
+                              RECORDAUDIO_RESULT_CODE);
+           break;
+         case AccessLocalNetworkInfo:
+-          showInfoDialog(getString(R.string.networkperm_dialog, "@APP_NAME@"), AccessLocalNetworkPermission);
++          showInfoDialog(getString(R.string.networkperm_dialog, getString(R.string.app_name)), AccessLocalNetworkPermission);
+           break;
+         case AccessLocalNetworkPermission:
+           requestPermissions(new String[]{Manifest.permission.ACCESS_LOCAL_NETWORK},
+@@ -218,7 +218,7 @@ public class Splash extends Activity
+ 
+           break;
+         case StartingXBMC:
+-          mSplash.mTextView.setText(getString(R.string.starting, "@APP_NAME@"));
++          mSplash.mTextView.setText(getString(R.string.starting, getString(R.string.app_name)));
+           mSplash.mProgress.setVisibility(View.INVISIBLE);
+           mSplash.startXBMC();
+           break;
+diff --git a/tools/android/packaging/xbmc/strings.xml.in b/tools/android/packaging/xbmc/strings.xml.in
+index d20fd89..f23074a 100644
+--- a/tools/android/packaging/xbmc/strings.xml.in
++++ b/tools/android/packaging/xbmc/strings.xml.in
+@@ -1,8 +1,8 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+ 
+-    <string name="app_name">@APP_NAME@</string>
+-    <string name="search_hint">@APP_NAME@</string>
++    <string name="app_name">BingeTV</string>
++    <string name="search_hint">BingeTV</string>
+ 
+     <string name="suggestion_channel">Suggestions</string>
+ 
+diff --git a/version.txt b/version.txt
+index 70dbe5e..a62567a 100644
+--- a/version.txt
++++ b/version.txt
+@@ -1,18 +1,18 @@
+ APP_NAME Kodi
+-COMPANY_NAME Kodi Foundation
+-DEV_NAME Team Kodi
+-ABOUT_WEBSITE https://kodi.tv/about/
+-FORUM_WEBSITE https://forum.kodi.tv/
+-DOCS_WEBSITE https://kodi.wiki/
++COMPANY_NAME shiggsy365
++DEV_NAME shiggsy365
++ABOUT_WEBSITE https://github.com/shiggsy365/BingeTV
++FORUM_WEBSITE https://github.com/shiggsy365/BingeTV/issues
++DOCS_WEBSITE https://github.com/shiggsy365/BingeTV
+ COPYRIGHT_YEARS 2005-2021
+-WEBSITE http://kodi.tv
++WEBSITE https://github.com/shiggsy365/BingeTV
+ VERSION_MAJOR 22
+ VERSION_MINOR 0
+ VERSION_TAG RC1
+ VERSION_CODE 21.90.901
+ ADDON_API 21.90.901
+ ADDON_REPOS repository.xbmc.org|https://mirrors.kodi.tv
+-APP_PACKAGE org.xbmc.kodi
++APP_PACKAGE com.shiggsy365.bingetv
+ PACKAGE_IDENTITY XBMCFoundation.Kodi
+ PACKAGE_PUBLISHER C62BD90A-CDD8-477F-96C3-B25992247B97
+-PACKAGE_DESCRIPTION Kodi is an open source (GPL) software media center for playing videos, music, pictures, games, and more.
++PACKAGE_DESCRIPTION BingeTV is an unofficial media centre built from Kodi (GPL), with Stremio Bridge built in. It is not made or endorsed by Team Kodi or the XBMC Foundation.

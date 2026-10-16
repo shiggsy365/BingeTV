@@ -64,8 +64,35 @@ jobs:
           key: tarballs-${{ env.KODI_TAG }}-${{ matrix.abi }}
           restore-keys: tarballs-${{ env.KODI_TAG }}-
 
+      - name: Signing key
+        # The release key (repository secrets BINGETV_KEYSTORE, base64 of the .jks, and
+        # BINGETV_KEY_PASSWORD) when it's there; otherwise Kodi's usual debug key, e.g. in forks.
+        env:
+          KEYSTORE: ${{ secrets.BINGETV_KEYSTORE }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/bingetv-release.jks"
+            echo "KODI_ANDROID_STORE_FILE=$RUNNER_TEMP/bingetv-release.jks" >> "$GITHUB_ENV"
+            echo "KODI_ANDROID_KEY_ALIAS=bingetv" >> "$GITHUB_ENV"
+            echo "SIGNED_WITH=release" >> "$GITHUB_ENV"
+            echo "::notice::Signing with the BingeTV release key"
+          else
+            echo "SIGNED_WITH=debug" >> "$GITHUB_ENV"
+            echo "::warning::No BINGETV_KEYSTORE secret: signing with a debug key (can't update a release install)"
+          fi
+
       - name: Build
+        env:
+          KODI_ANDROID_STORE_PASSWORD: ${{ secrets.BINGETV_KEY_PASSWORD }}
+          KODI_ANDROID_KEY_PASSWORD: ${{ secrets.BINGETV_KEY_PASSWORD }}
         run: scripts/build-android.sh ${{ matrix.abi }}
+
+      - name: Check signature
+        run: |
+          apksigner=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/*/ | sort -V | tail -1)apksigner
+          for apk in "$WORK_DIR"/out/*.apk; do
+            "$apksigner" verify --print-certs "$apk" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          done
 
       - name: Disk left
         if: always()
@@ -73,6 +100,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: bingetv-${{ matrix.abi }}
+          name: bingetv-${{ matrix.abi }}-${{ env.SIGNED_WITH }}-signed
           path: ${{ env.WORK_DIR }}/out/*.apk
           if-no-files-found: error
