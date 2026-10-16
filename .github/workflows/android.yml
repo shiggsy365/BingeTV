@@ -91,7 +91,11 @@ jobs:
         run: |
           apksigner=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/*/ | sort -V | tail -1)apksigner
           for apk in "$WORK_DIR"/out/*.apk; do
-            "$apksigner" verify --print-certs "$apk" | grep -E "Signer #1 certificate (DN|SHA-256)"
+            # Fails the step if the signature doesn't verify. With several schemes (v1-v3.1),
+            # apksigner names the signers differently, so just show each certificate once.
+            certs=$("$apksigner" verify --print-certs "$apk")
+            echo "$(basename "$apk"):"
+            echo "$certs" | grep -E "certificate (DN|SHA-256 digest):" | sed 's/^Signer[^c]*//' | sort -u
           done
 
       - name: Disk left
