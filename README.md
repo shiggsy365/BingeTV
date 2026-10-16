@@ -16,7 +16,7 @@ Work in progress. Right now the repo builds Kodi 22 for Android as **BingeTV**: 
 |---|---|---|
 | 0 | Reproducible CI build of Kodi 22 for armeabi-v7a and arm64-v8a | done |
 | 1 | Rebrand as BingeTV (`com.shiggsy365.bingetv`), release signing | done |
-| 2 | Port Stremio Bridge and its add-ons to Kodi 22 | planned |
+| 2 | Port Stremio Bridge and its add-ons to Kodi 22 ([results](docs/kodi22-compatibility.md)) | done: they work unchanged |
 | 3 | New skin for Kodi 22 | planned |
 | 4 | Built-in add-ons, first-run restore of a Kodi backup, update notices | planned |
 | 5 | Remove what isn't needed, tune for speed (measured on a Fire TV Stick 4K) | planned |
