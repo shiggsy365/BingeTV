@@ -78,8 +78,11 @@ fi
 step "Depends for $HOST"
 cd "$SRC/tools/depends"
 ./bootstrap
+# Kodi's depends default to a debug build (--enable-debug): debug flags and a debuggable
+# APK. Release builds, like Kodi's own, use --disable-debug; DEBUG_BUILD=1 for a debug one.
+if [ "${DEBUG_BUILD:-0}" = 1 ]; then debug=--enable-debug; else debug=--disable-debug; fi
 ./configure --with-tarballs="$WORK_DIR/tarballs" --host="$HOST" \
-  --with-sdk-path="$SDK" --with-ndk-path="$NDK" --prefix="$WORK_DIR/depends"
+  --with-sdk-path="$SDK" --with-ndk-path="$NDK" --prefix="$WORK_DIR/depends" "$debug"
 make -j"$JOBS"
 
 step "Binary add-ons: $BINARY_ADDONS"
@@ -91,5 +94,8 @@ make -C "$BUILD" -j"$JOBS"
 
 step "APK"
 make -C "$BUILD" apk
-find "$SRC" -maxdepth 1 -name "*.apk" -newer "$BUILD/CMakeCache.txt" -exec cp -v {} "$OUT/" \;
+# Kodi names it kodiapp-<abi>-<release|debug>.apk.
+for apk in $(find "$SRC" -maxdepth 1 -name "*.apk" -newer "$BUILD/CMakeCache.txt"); do
+  cp -v "$apk" "$OUT/$(basename "$apk" | sed 's/^kodiapp-/bingetv-/')"
+done
 ls -la "$OUT"
