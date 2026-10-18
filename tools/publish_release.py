@@ -39,6 +39,29 @@ def call(method, url, token, data=None, content_type="application/json", raw=Fal
     return payload if raw else json.loads(payload or b"{}")
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def download(url, token):
+    """An artifact: GitHub answers with a redirect to its storage, which must be fetched
+    without the token (it rejects requests that carry one)."""
+    opener = urllib.request.build_opener(_NoRedirect)
+    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}",
+                                                   "User-Agent": "BingeTV release"})
+    try:
+        with opener.open(request, timeout=600) as response:
+            return response.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code not in (301, 302, 303, 307, 308):
+            raise
+        location = exc.headers["Location"]
+    with urllib.request.urlopen(urllib.request.Request(location, headers={"User-Agent": "BingeTV release"}),
+                                timeout=600) as response:
+        return response.read()
+
+
 def main():
     token = os.environ["GITHUB_TOKEN"]
     run_id = sys.argv[1]
@@ -62,7 +85,7 @@ def main():
 
     apks = {}
     for artifact in signed:
-        data = call("GET", artifact["archive_download_url"], token, raw=True)
+        data = download(artifact["archive_download_url"], token)
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             for name in archive.namelist():
                 if name.endswith(".apk"):
