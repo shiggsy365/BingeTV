@@ -1,0 +1,85 @@
+diff --git a/xbmc/LangInfo.cpp b/xbmc/LangInfo.cpp
+index 8badb98..b11820c 100644
+--- a/xbmc/LangInfo.cpp
++++ b/xbmc/LangInfo.cpp
+@@ -889,7 +889,9 @@ std::string CLangInfo::GetLanguageAs(CLangCodeExpander::LANGFORMATS format, bool
+   return language;
+ }
+ 
+-bool CLangInfo::SetLanguage(std::string language /* = "" */, bool reloadServices /* = true */)
++bool CLangInfo::SetLanguage(std::string language /* = "" */,
++                            bool reloadServices /* = true */,
++                            bool reloadSkin /* = true */)
+ {
+   if (language.empty())
+     language = CServiceBroker::GetSettingsComponent()->GetSettings()->GetString(CSettings::SETTING_LOCALE_LANGUAGE);
+@@ -954,8 +956,9 @@ bool CLangInfo::SetLanguage(std::string language /* = "" */, bool reloadServices
+     CServiceBroker::GetWeatherManager().Refresh();
+     CServiceBroker::GetPVRManager().LocalizationChanged();
+     CServiceBroker::GetDatabaseManager().LocalizationChanged();
+-    CServiceBroker::GetAppMessenger()->PostMsg(TMSG_EXECUTE_BUILT_IN, -1, -1, nullptr,
+-                                               "ReloadSkin");
++    if (reloadSkin) // BingeTV: not when loading a profile, which reloads the skin itself after
++      CServiceBroker::GetAppMessenger()->PostMsg(TMSG_EXECUTE_BUILT_IN, -1, -1, nullptr,
++                                                 "ReloadSkin");
+   }
+ 
+   return true;
+diff --git a/xbmc/LangInfo.h b/xbmc/LangInfo.h
+index 05f42b1..ffc325b 100644
+--- a/xbmc/LangInfo.h
++++ b/xbmc/LangInfo.h
+@@ -123,7 +123,7 @@ public:
+   \param reloadServices (optional) Whether to reload services relying on localization.
+   \return True if the language has been successfully loaded, false otherwise.
+   */
+-  bool SetLanguage(std::string strLanguage = "", bool reloadServices = true);
++  bool SetLanguage(std::string strLanguage = "", bool reloadServices = true, bool reloadSkin = true);
+ 
+   /*!
+    * \brief Get the preferred audio language.
+diff --git a/xbmc/application/Application.cpp b/xbmc/application/Application.cpp
+index 7362719..83a4052 100644
+--- a/xbmc/application/Application.cpp
++++ b/xbmc/application/Application.cpp
+@@ -2856,10 +2856,10 @@ bool CApplication::SetLanguage(const std::string &strLanguage)
+   return CServiceBroker::GetSettingsComponent()->GetSettings()->SetString(CSettings::SETTING_LOCALE_LANGUAGE, strLanguage);
+ }
+ 
+-bool CApplication::LoadLanguage(bool reload)
++bool CApplication::LoadLanguage(bool reload, bool reloadSkin /* = true */)
+ {
+   // load the configured language
+-  if (!g_langInfo.SetLanguage("", reload))
++  if (!g_langInfo.SetLanguage("", reload, reloadSkin))
+     return false;
+ 
+   // set the proper audio and subtitle languages
+diff --git a/xbmc/application/Application.h b/xbmc/application/Application.h
+index 8f6d71c..891168c 100644
+--- a/xbmc/application/Application.h
++++ b/xbmc/application/Application.h
+@@ -181,7 +181,7 @@ public:
+   bool GetRenderGUI() const override;
+ 
+   bool SetLanguage(const std::string &strLanguage);
+-  bool LoadLanguage(bool reload);
++  bool LoadLanguage(bool reload, bool reloadSkin = true);
+ 
+   void SetLoggingIn(bool switchingProfiles);
+ 
+diff --git a/xbmc/profiles/ProfileManager.cpp b/xbmc/profiles/ProfileManager.cpp
+index 6ef7240..0e5be01 100644
+--- a/xbmc/profiles/ProfileManager.cpp
++++ b/xbmc/profiles/ProfileManager.cpp
+@@ -412,7 +412,9 @@ void CProfileManager::FinalizeLoadProfile()
+   // let CApplication know that we are logging into a new profile
+   g_application.SetLoggingIn(true);
+ 
+-  if (!g_application.LoadLanguage(true))
++  // BingeTV: without its own skin reload: the UI-ready message below reloads the skin (for the
++  // new profile's skin settings) anyway, and loading it twice cost a second on a Fire TV Stick
++  if (!g_application.LoadLanguage(true, false))
+   {
+     CLog::Log(LOGFATAL, "Unable to load language for profile \"{}\"",
+               GetCurrentProfile().getName());
