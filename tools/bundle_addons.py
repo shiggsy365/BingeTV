@@ -14,7 +14,9 @@ Reads config/build.env (passed in the environment by scripts/build-android.sh):
   tell you when a newer BingeTV is out.
 
 Each add-on goes into <kodi source>/addons/<id>/ and is listed in
-cmake/installdata/common/addons.txt, so it's packed into the APK. Kodi turns them
+cmake/installdata/common/addons.txt, so it's packed into the APK. A skin isn't
+listed: patches/0003 has Kodi pack its media/ into Textures.xbt, as for Estuary
+(Android's packaging keeps nothing else from a skin's media/). Kodi turns them
 on at the first start because patches/0002 lists them in system/addon-manifest.xml.
 """
 
@@ -100,6 +102,8 @@ def list_in_apk(kodi, addons):
     with open(path, encoding="utf-8") as f:
         lines = f.read().splitlines()
     for addon in addons:
+        if addon.startswith("skin."):
+            continue  # skins are packed (Textures.xbt) and installed by Kodi's CMake: patches/0003
         line = f"addons/{addon}/*"
         if line not in lines:
             lines.append(line)
