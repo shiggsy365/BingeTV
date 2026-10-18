@@ -1,0 +1,101 @@
+diff --git a/xbmc/interfaces/builtins/ProfileBuiltins.cpp b/xbmc/interfaces/builtins/ProfileBuiltins.cpp
+index 798b018..2cc2120 100644
+--- a/xbmc/interfaces/builtins/ProfileBuiltins.cpp
++++ b/xbmc/interfaces/builtins/ProfileBuiltins.cpp
+@@ -13,6 +13,8 @@
+ #include "ServiceBroker.h"
+ #include "Util.h"
+ #include "dialogs/GUIDialogKaiToast.h"
++#include "filesystem/Directory.h"
++#include "filesystem/File.h"
+ #include "favourites/FavouritesService.h"
+ #include "guilib/GUIComponent.h"
+ #include "guilib/GUIWindowManager.h"
+@@ -22,6 +24,7 @@
+ #include "resources/ResourcesComponent.h"
+ #include "settings/SettingsComponent.h"
+ #include "utils/StringUtils.h"
++#include "utils/URIUtils.h"
+ 
+ /*! \brief Load a profile.
+  *  \param params The parameters.
+@@ -96,6 +99,68 @@ static int MasterMode(const std::vector<std::string>& params)
+ }
+ 
+ 
++// BingeTV: profiles made and changed from its own profile picker (Stremio Bridge), in one step
++// rather than through Kodi's profile dialogs.
++
++/*! \brief Add a profile: BingeTV.AddProfile(name[,thumb[,directory]])
++ *  The directory (relative to the master profile's, e.g. "profiles/kids/") defaults to one
++ *  made from the name. The new profile starts with the master profile's Kodi settings
++ *  (guisettings.xml) and its own add-on data, databases and sources. */
++static int AddProfile(const std::vector<std::string>& params)
++{
++  const std::shared_ptr<CProfileManager> profileManager =
++      CServiceBroker::GetSettingsComponent()->GetProfileManager();
++  const std::string& name = params[0];
++  if (name.empty() || profileManager->GetProfileIndex(name) != INVALID_PROFILE_ID)
++    return -1;
++
++  std::string directory = params.size() > 2 && !params[2].empty()
++                              ? params[2]
++                              : URIUtils::AddFileToFolder("profiles", CUtil::MakeLegalFileName(name));
++  URIUtils::AddSlashAtEnd(directory);
++  const std::string path = URIUtils::AddFileToFolder("special://masterprofile/", directory);
++  if (!XFILE::CDirectory::Exists(path) && !XFILE::CDirectory::Create(path))
++    return -1;
++
++  const std::string settings = URIUtils::AddFileToFolder(path, "guisettings.xml");
++  if (!XFILE::CFile::Exists(settings))
++    XFILE::CFile::Copy("special://masterprofile/guisettings.xml", settings);
++
++  CProfile profile(directory, name, profileManager->GetNextProfileId());
++  if (params.size() > 1)
++    profile.setThumb(params[1]);
++  profile.setDate();
++  profileManager->AddProfile(profile); // saves profiles.xml
++  return 0;
++}
++
++/*! \brief Change a profile's picture: BingeTV.SetProfileThumb(name,thumb) */
++static int SetProfileThumb(const std::vector<std::string>& params)
++{
++  const std::shared_ptr<CProfileManager> profileManager =
++      CServiceBroker::GetSettingsComponent()->GetProfileManager();
++  const int index = profileManager->GetProfileIndex(params[0]);
++  if (index == INVALID_PROFILE_ID)
++    return -1;
++  CProfile* profile = profileManager->GetProfile(index);
++  if (profile == nullptr)
++    return -1;
++  profile->setThumb(params.size() > 1 ? params[1] : "");
++  profileManager->Save();
++  return 0;
++}
++
++/*! \brief Show the profile picker (login screen) when Kodi starts: BingeTV.UseLoginScreen(true|false) */
++static int UseLoginScreen(const std::vector<std::string>& params)
++{
++  const std::shared_ptr<CProfileManager> profileManager =
++      CServiceBroker::GetSettingsComponent()->GetProfileManager();
++  const bool wanted = StringUtils::EqualsNoCase(params[0], "true");
++  if (profileManager->UsingLoginScreen() != wanted)
++    profileManager->ToggleLoginScreen(); // saves profiles.xml
++  return 0;
++}
++
+ // Note: For new Texts with comma add a "\" before!!! Is used for table text.
+ //
+ /// \page page_List_of_built_in_functions
+@@ -135,6 +200,9 @@ CBuiltins::CommandMap CProfileBuiltins::GetOperations() const
+   return {
+            {"loadprofile",   {"Load the specified profile (note; if locks are active it won't work)", 1, LoadProfile}},
+            {"mastermode",    {"Control master mode", 0, MasterMode}},
+-           {"system.logoff", {"Log off current user", 0, LogOff}}
++           {"system.logoff", {"Log off current user", 0, LogOff}},
++           {"bingetv.addprofile", {"BingeTV: add a profile", 1, AddProfile}},
++           {"bingetv.setprofilethumb", {"BingeTV: change a profile's picture", 1, SetProfileThumb}},
++           {"bingetv.useloginscreen", {"BingeTV: profile picker at start-up", 1, UseLoginScreen}}
+          };
+ }
