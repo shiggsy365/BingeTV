@@ -88,34 +88,44 @@ BingeTV's data cleared:
 - `patches/0003` was needed: Android's packaging keeps only a skin's `Textures.xbt`, so the first
   build's skin had no images.
 
-## Phase 5: speed and slimming
+## Phase 5: speed and slimming (in progress)
 
-- **Kodi patch for `reuselanguageinvoker`:**
-  - Reusing the Python interpreter crashes Kodi 22: a SIGSEGV in `CPythonInvoker::execute`, inside
-    `GilSafeSingleLock`. It's switched off in BingeTV's copy of Stremio Bridge for now.
-  - Fix it in Kodi, then turn it back on. This is the biggest speed win for add-on menus.
-- **Home rows filled in ahead of time:** Home shows its rows straight away instead of waiting for
-  the add-on.
-- **"Preparing to play" page:** clear it after a timeout, in case Kodi fails without telling the
-  add-on.
-- **Remove unused Kodi add-ons:**
-  - Kodi treats these as required, so they can't be uninstalled in the app. The build patch drops
-    them from `system/addon-manifest.xml` and from what goes into the APK.
-  - It also changes any default setting that names a removed add-on.
-
-  | Add-on | Decision | Size |
-  |---|---|---|
-  | WMA encoder (`audioencoder.kodi.builtin.wma`) | Remove: only for ripping CDs | 0.6 MB |
-  | Game controllers: Default, Computer Mouse, IBM Model M Keyboard, SNES (`game.controller.*`) | Remove: only for Kodi's game emulators | 4.9 MB |
-  | Web interface, Chorus2 (`webinterface.default`) | Remove: the browser remote. Phone remotes don't need it | 9.9 MB |
-  | Weather Icons (`resource.images.weathericons.default`) | Remove: the skin has no weather | 4.7 MB |
-  | Generic and Universal album and artist scrapers, and their `metadata.common.*` helpers | Remove unless music files are scanned into Kodi's library (to decide) | 3.5 MB |
-  | Estuary (`skin.estuary`) | Remove once `skin.bingetv` is the built-in default (phase 4). Until then it's the fallback if the skin fails to load | 9.4 MB |
-  | Black screensaver | Keep: tiny, and suits OLED screens | — |
-  | TMDb movie and TV scrapers | Keep: Stremio Bridge's "My Library" uses them to fill in titles | — |
-
-- **Other tuning:** strip anything else unused, and measure start-up and menu timings on a Fire TV
-  Stick before and after each change.
+- **The reusable Python interpreter** (`patches/0004`):
+  - **The crash:** with `reuselanguageinvoker` on, Kodi 22 crashed (SIGSEGV in
+    `CPythonInvoker::execute`, in `GilSafeSingleLock`) when several Home rows loaded at once.
+  - **The cause:** Kodi keeps one reusable interpreter. One plugin call could claim it, then
+    another call released it before the first had started. The first then ran on a new thread
+    while the old thread tore the interpreter down.
+  - **The patch:**
+    - The plugin handle and the interpreter are claimed together, by one call.
+    - While the interpreter is claimed or running, other calls get a handle and a one-off
+      interpreter of their own, which is how every call works with reuse off. Nothing releases it
+      from under its claimant.
+    - BingeTV's Kodi turns reuse on for Stremio Bridge itself. The add-on doesn't ask for it in its
+      `addon.xml`, because on plain Kodi it can still crash.
+  - Still to do: test on the Stick, with the old reproduction (fast Left/Right over Home's menu)
+    and timings.
+- **Home rows straight away:** this mostly comes from the reusable interpreter (pages measured at
+  120–310 ms instead of 650–1,030 ms) plus Stremio Bridge's pre-warmed catalogs. Measure once the
+  build is in; anything still slow gets its own fix.
+- **"Preparing to play" page:** done (Stremio Bridge 0.17.0). It's taken down a minute after the
+  hand-over if Kodi never starts the stream.
+- **Kodi 21's settings files** (Stremio Bridge, next release): Kodi 22 converts a Kodi 21
+  add-on settings file on every load until a setting is saved. Once per start, the service
+  re-saves each such file. Tested on the Stick: Dispatcharr Bridge's file went from version 2 to 4.
+- **Unused Kodi add-ons removed** (`patches/0005`):
+  - Estuary, now that `skin.bingetv` is the built-in default.
+  - The WMA encoder.
+  - The four game controllers.
+  - Chorus2, the browser remote. Phone remotes still work.
+  - The weather icons.
+  - Kodi's version check, which tells you to update Kodi and is no use in BingeTV.
+  - The music album and artist scrapers and their `metadata.common.*` helpers. Music from add-ons
+    still works, but Kodi's own music-library scanning no longer fetches album and artist details.
+  - The settings that named them now have empty defaults.
+  - Kept: the black screensaver, and the TMDb movie and TV scrapers (Stremio Bridge's "My
+    Library" uses them).
+- **Other tuning:** measure start-up and menu timings on the Stick before and after.
 
 ## Phase 6: releases
 
