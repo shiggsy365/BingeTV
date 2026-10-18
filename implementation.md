@@ -51,7 +51,7 @@ builds the APK.
 
 The skin itself isn't in the add-on repository: it ships inside the APK (phase 4).
 
-## Phase 4: BingeTV out of the box (built; Stremio Bridge 0.17.2; needs a test on the Stick)
+## Phase 4: BingeTV out of the box (done)
 
 - **Built-in add-ons** (`tools/bundle_addons.py`, a build step):
   - From KodiStremioBridge, at the commit pinned in `config/build.env` (`OURS_REF`): Stremio
@@ -78,8 +78,15 @@ The skin itself isn't in the add-on repository: it ships inside the APK (phase 4
   Kodi's "old format" messages came from Up Next's own settings definitions, which it converts
   itself.
 
-Still to do:
-- A CI build, then a fresh install on the Stick.
+Tested on 18 October 2026 with CI's release-signed armeabi-v7a APK, on a Fire TV Stick 4K with
+BingeTV's data cleared:
+- The first start used the BingeTV skin. All the built-in add-ons were on, and IPTV Simple stayed
+  off as planned.
+- Subtitles defaulted to English, and remote control from other devices was on.
+- The restore offer appeared. Restoring the device's backup brought back the profile, rows,
+  add-ons and IPTV channels.
+- `patches/0003` was needed: Android's packaging keeps only a skin's `Textures.xbt`, so the first
+  build's skin had no images.
 
 ## Phase 5: speed and slimming
 
