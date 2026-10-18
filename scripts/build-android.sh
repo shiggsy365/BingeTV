@@ -62,6 +62,13 @@ step "Overlay"
   cp "$f" "$SRC/$f"
 done)
 
+step "Built-in add-ons"
+# Stremio Bridge, the BingeTV skin and the rest, into Kodi's addons/ (tools/bundle_addons.py).
+BINARY_ADDONS="$BINARY_ADDONS" BINGETV_VERSION="$BINGETV_VERSION" BINGETV_RELEASES="$BINGETV_RELEASES" \
+  OURS_REPO="$OURS_REPO" OURS_REF="$OURS_REF" OURS_ADDONS="$OURS_ADDONS" \
+  KODI_ADDON_MIRROR="$KODI_ADDON_MIRROR" KODI_REPO_ADDONS="$KODI_REPO_ADDONS" \
+  python3 "$ROOT/tools/bundle_addons.py" "$SRC"
+
 step "Signing key"
 # Release builds pass the BingeTV key in KODI_ANDROID_STORE_FILE, KODI_ANDROID_KEY_ALIAS,
 # KODI_ANDROID_STORE_PASSWORD and KODI_ANDROID_KEY_PASSWORD (read by Kodi's packaging).
