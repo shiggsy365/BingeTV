@@ -88,7 +88,7 @@ BingeTV's data cleared:
 - `patches/0003` was needed: Android's packaging keeps only a skin's `Textures.xbt`, so the first
   build's skin had no images.
 
-## Phase 5: speed and slimming (nearly done)
+## Phase 5: speed and slimming (done)
 
 - **The reusable Python interpreter** (`patches/0004`):
   - **The crash:** with `reuselanguageinvoker` on, Kodi 22 crashed (SIGSEGV in
@@ -109,12 +109,17 @@ BingeTV's data cleared:
       10 Home/hub switches, and 10 bursts of 6 pages loading at once (60 of 60 loaded).
     - Calls took a median of 136 ms (17 ms to 3.3 s), against 650–1,030 ms before. A burst of 6
       pages takes about 1.1 s.
-- **Home rows straight away:** this mostly comes from the reusable interpreter (pages measured at
-  120–310 ms instead of 650–1,030 ms) plus Stremio Bridge's pre-warmed catalogs. Measure once the
-  build is in; anything still slow gets its own fix.
+- **Home rows straight away** (Stremio Bridge 0.17.4, `skin.bingetv` 0.2.0):
+  - Stremio Bridge also keeps the Home rows as skin settings (per profile), so Home shows them as it
+    opens instead of waiting for the service to publish them.
+  - The service then waits a few seconds before its start-up work, leaving the device to Home's
+    first rows.
+  - Measured on the Stick: launch to Home's first row went from 12.0 s to 8.4 s. Kodi itself takes
+    about 3.9 s to start.
+  - Opening a hub takes 0.65–0.9 s.
 - **"Preparing to play" page:** done (Stremio Bridge 0.17.0). It's taken down a minute after the
   hand-over if Kodi never starts the stream.
-- **Kodi 21's settings files** (needs a Stremio Bridge release): Kodi 22 converts a Kodi 21
+- **Kodi 21's settings files** (Stremio Bridge 0.17.3): Kodi 22 converts a Kodi 21
   add-on settings file on every load until a setting is saved. Once per start, the service
   re-saves each such file. Tested on the Stick: Dispatcharr Bridge's file went from version 2 to 4.
 - **Unused Kodi add-ons removed** (`patches/0005`):
@@ -129,15 +134,16 @@ BingeTV's data cleared:
   - The settings that named them now have empty defaults.
   - Kept: the black screensaver, and the TMDb movie and TV scrapers (Stremio Bridge's "My
     Library" uses them).
-- **Other tuning:** measure start-up and menu timings on the Stick before and after.
+## Phase 6: releases (done, apart from the final Kodi 22)
 
-## Phase 6: releases
-
-- Move from Kodi 22.0 RC1 to the final Kodi 22 release tag once it's out (`KODI_TAG` in
-  `config/build.env`). Then repeat the phase 2 checks.
-- Publish signed APKs (32-bit and 64-bit ARM) as GitHub releases. Point phase 4's update
-  notification at them.
-- Write install and update instructions for Fire TV, Android TV and Android tablets.
+- **Releases:** `tools/publish_release.py` turns a CI run's two signed APKs into the GitHub
+  release `v<BINGETV_VERSION>`. That's what the update notices check. BingeTV 0.2.0 is the first,
+  built from Kodi 22.0 RC1 with Stremio Bridge 0.17.4.
+- **Install and update instructions:** [docs/install.md](docs/install.md) covers Fire TV, Android
+  TV and tablets, and bringing a Kodi setup across.
+- **Still to do:** move to the final Kodi 22 release (`KODI_TAG` in `config/build.env`) once Team
+  Kodi publishes it. As of 18 October 2026 the latest tag is 22.0 RC1. Then check that the patches
+  still apply, repeat the phase 2 checks, and release.
 
 ## Known limitations
 
