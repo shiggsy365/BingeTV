@@ -9,6 +9,7 @@ on:
       - "scripts/**"
       - "patches/**"
       - "overlay/**"
+      - "tools/bundle_addons.py"
       - ".github/workflows/android.yml"
 
 concurrency:
