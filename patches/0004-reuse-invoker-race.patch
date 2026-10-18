@@ -1,0 +1,181 @@
+diff --git a/xbmc/addons/addoninfo/AddonInfoBuilder.cpp b/xbmc/addons/addoninfo/AddonInfoBuilder.cpp
+index 0620971..c6b498f 100644
+--- a/xbmc/addons/addoninfo/AddonInfoBuilder.cpp
++++ b/xbmc/addons/addoninfo/AddonInfoBuilder.cpp
+@@ -555,6 +555,12 @@ bool CAddonInfoBuilder::ParseXML(const AddonInfoPtr& addon,
+       if (element && element->GetText() != nullptr)
+         addon->AddExtraInfo("reuselanguageinvoker", element->GetText());
+ 
++      /* BingeTV: Stremio Bridge keeps its interpreter between calls (pages several times
++       * faster). That's safe with BingeTV's patched invoker (ScriptInvocationManager), not in
++       * plain Kodi, so the add-on doesn't ask for it itself. */
++      if (addon->m_id == "plugin.video.stremiobridge")
++        addon->AddExtraInfo("reuselanguageinvoker", "true");
++
+       /* Parse addon.xml "<size">...</size>" */
+       element = child->FirstChildElement("size");
+       if (element && element->GetText() != nullptr)
+diff --git a/xbmc/interfaces/generic/LanguageInvokerThread.cpp b/xbmc/interfaces/generic/LanguageInvokerThread.cpp
+index ec58f01..5621766 100644
+--- a/xbmc/interfaces/generic/LanguageInvokerThread.cpp
++++ b/xbmc/interfaces/generic/LanguageInvokerThread.cpp
+@@ -48,6 +48,7 @@ bool CLanguageInvokerThread::execute(const std::string &script, const std::vecto
+ 
+   m_script = script;
+   m_args = arguments;
++  m_claimed = false; // the claimant's script is now this thread's: busy by its state
+ 
+   if (CThread::IsRunning())
+   {
+diff --git a/xbmc/interfaces/generic/LanguageInvokerThread.h b/xbmc/interfaces/generic/LanguageInvokerThread.h
+index 713d37a..cef1830 100644
+--- a/xbmc/interfaces/generic/LanguageInvokerThread.h
++++ b/xbmc/interfaces/generic/LanguageInvokerThread.h
+@@ -11,6 +11,7 @@
+ #include "interfaces/generic/ILanguageInvoker.h"
+ #include "threads/Thread.h"
+ 
++#include <atomic>
+ #include <string>
+ #include <vector>
+ 
+@@ -32,6 +33,16 @@ public:
+   {
+     return !m_bStop && m_reusable && GetState() == InvokerStateScriptDone && m_script == script;
+   };
++  /*!
++   * BingeTV: claimed by a request about to run its script on this (reusable)
++   * thread, or running one. Others must neither release it nor run on it.
++   */
++  bool IsBusy() const
++  {
++    return !m_bStop && m_reusable && (m_claimed || GetState() < InvokerStateScriptDone);
++  }
++  bool IsClaimed() const { return m_claimed; }
++  void Claim() { m_claimed = true; }
+   virtual void Release();
+ 
+ protected:
+@@ -53,4 +64,5 @@ private:
+   std::condition_variable m_condition;
+   bool m_restart = false;
+   bool m_reusable = false;
++  std::atomic<bool> m_claimed{false}; // BingeTV: see IsBusy()
+ };
+diff --git a/xbmc/interfaces/generic/ScriptInvocationManager.cpp b/xbmc/interfaces/generic/ScriptInvocationManager.cpp
+index c6fe845..d7aede7 100644
+--- a/xbmc/interfaces/generic/ScriptInvocationManager.cpp
++++ b/xbmc/interfaces/generic/ScriptInvocationManager.cpp
+@@ -163,8 +163,15 @@ int CScriptInvocationManager::GetReusablePluginHandle(const std::string& script)
+ 
+   if (m_lastInvokerThread)
+   {
+-    if (m_lastInvokerThread->Reuseable(script))
++    // BingeTV: the handle goes with the reusable thread, so claim it for this request; while
++    // it's claimed or running, others get a handle (and an interpreter) of their own.
++    if (!m_lastInvokerThread->IsClaimed() && m_lastInvokerThread->Reuseable(script))
++    {
++      m_lastInvokerThread->Claim();
+       return m_lastPluginHandle;
++    }
++    if (m_lastInvokerThread->IsBusy())
++      return -1;
+     m_lastInvokerThread->Release();
+     m_lastInvokerThread = nullptr;
+   }
+@@ -172,21 +179,30 @@ int CScriptInvocationManager::GetReusablePluginHandle(const std::string& script)
+ }
+ 
+ std::shared_ptr<ILanguageInvoker> CScriptInvocationManager::GetLanguageInvoker(
+-    const std::string& script)
++    const std::string& script, int pluginHandle /* = -1 */)
+ {
+   std::unique_lock lock(m_critSection);
+ 
+   if (m_lastInvokerThread)
+   {
+-    if (m_lastInvokerThread->Reuseable(script))
++    // BingeTV: reuse the thread's interpreter only for the request that claimed it (with its
++    // plugin handle, above) or, unclaimed, for this one. Releasing a claimed or running thread
++    // let its exit tear the interpreter down while the claimant ran on it from a new thread:
++    // a crash in CPythonInvoker::execute when several widgets loaded at once.
++    if (m_lastInvokerThread->Reuseable(script) &&
++        (!m_lastInvokerThread->IsClaimed() || pluginHandle == m_lastPluginHandle))
+     {
+       CLog::Log(LOGDEBUG, "{} - Reusing LanguageInvokerThread {} for script {}", __FUNCTION__,
+                 m_lastInvokerThread->GetId(), script);
++      m_lastInvokerThread->Claim();
+       m_lastInvokerThread->GetInvoker()->Reset();
+       return m_lastInvokerThread->GetInvoker();
+     }
+-    m_lastInvokerThread->Release();
+-    m_lastInvokerThread = nullptr;
++    if (!m_lastInvokerThread->IsBusy())
++    {
++      m_lastInvokerThread->Release();
++      m_lastInvokerThread = nullptr;
++    }
+   }
+ 
+   std::string extension = URIUtils::GetExtension(script);
+@@ -215,7 +231,7 @@ int CScriptInvocationManager::ExecuteAsync(
+     return -1;
+   }
+ 
+-  auto invoker = GetLanguageInvoker(script);
++  auto invoker = GetLanguageInvoker(script, pluginHandle);
+   return ExecuteAsync(script, invoker, addon, arguments, reuseable, pluginHandle);
+ }
+ 
+@@ -251,21 +267,27 @@ int CScriptInvocationManager::ExecuteAsync(
+     return invokerThread->GetId();
+   }
+ 
+-  m_lastInvokerThread = std::make_shared<CLanguageInvokerThread>(languageInvoker, this, reuseable);
+-  if (m_lastInvokerThread == nullptr)
++  // BingeTV: while the reusable thread is claimed or running, this script runs on a one-off
++  // thread, and the reusable one stays for its claimant.
++  const bool keepLast = m_lastInvokerThread && m_lastInvokerThread->IsBusy();
++  auto invokerThread =
++      std::make_shared<CLanguageInvokerThread>(languageInvoker, this, reuseable && !keepLast);
++  if (invokerThread == nullptr)
+     return -1;
+ 
+   if (addon != nullptr)
+-    m_lastInvokerThread->SetAddon(addon);
++    invokerThread->SetAddon(addon);
+ 
+-  m_lastInvokerThread->SetId(m_nextId++);
+-  m_lastPluginHandle = pluginHandle;
++  invokerThread->SetId(m_nextId++);
++  if (!keepLast)
++  {
++    m_lastInvokerThread = invokerThread;
++    m_lastPluginHandle = pluginHandle;
++  }
+ 
+-  LanguageInvokerThread thread = {m_lastInvokerThread, script, false};
+-  m_scripts.insert(std::make_pair(m_lastInvokerThread->GetId(), thread));
+-  m_scriptPaths.insert(std::make_pair(script, m_lastInvokerThread->GetId()));
+-  // After we leave the lock, m_lastInvokerThread can be released -> copy!
+-  auto invokerThread = m_lastInvokerThread;
++  LanguageInvokerThread thread = {invokerThread, script, false};
++  m_scripts.insert(std::make_pair(invokerThread->GetId(), thread));
++  m_scriptPaths.insert(std::make_pair(script, invokerThread->GetId()));
+   lock.unlock();
+   invokerThread->Execute(script, arguments);
+ 
+diff --git a/xbmc/interfaces/generic/ScriptInvocationManager.h b/xbmc/interfaces/generic/ScriptInvocationManager.h
+index 6ae97a4..d57a3f3 100644
+--- a/xbmc/interfaces/generic/ScriptInvocationManager.h
++++ b/xbmc/interfaces/generic/ScriptInvocationManager.h
+@@ -31,7 +31,8 @@ public:
+   void RegisterLanguageInvocationHandler(ILanguageInvocationHandler *invocationHandler, const std::set<std::string> &extensions);
+   void UnregisterLanguageInvocationHandler(ILanguageInvocationHandler *invocationHandler);
+   bool HasLanguageInvoker(const std::string &script) const;
+-  std::shared_ptr<ILanguageInvoker> GetLanguageInvoker(const std::string& script);
++  std::shared_ptr<ILanguageInvoker> GetLanguageInvoker(const std::string& script,
++                                                       int pluginHandle = -1);
+ 
+   /*!
+   * \brief Returns addon_handle if last reusable invoker is ready to use.
