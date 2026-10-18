@@ -1,5 +1,5 @@
 diff --git a/xbmc/interfaces/builtins/ProfileBuiltins.cpp b/xbmc/interfaces/builtins/ProfileBuiltins.cpp
-index 798b018..2cc2120 100644
+index 798b018..ab9872b 100644
 --- a/xbmc/interfaces/builtins/ProfileBuiltins.cpp
 +++ b/xbmc/interfaces/builtins/ProfileBuiltins.cpp
 @@ -13,6 +13,8 @@
@@ -19,7 +19,7 @@ index 798b018..2cc2120 100644
  
  /*! \brief Load a profile.
   *  \param params The parameters.
-@@ -96,6 +99,68 @@ static int MasterMode(const std::vector<std::string>& params)
+@@ -96,6 +99,98 @@ static int MasterMode(const std::vector<std::string>& params)
  }
  
  
@@ -74,6 +74,36 @@ index 798b018..2cc2120 100644
 +  return 0;
 +}
 +
++/*! \brief Rename a profile: BingeTV.RenameProfile(name,new name) */
++static int RenameProfile(const std::vector<std::string>& params)
++{
++  const std::shared_ptr<CProfileManager> profileManager =
++      CServiceBroker::GetSettingsComponent()->GetProfileManager();
++  if (params.size() < 2 || params[1].empty() ||
++      profileManager->GetProfileIndex(params[1]) != INVALID_PROFILE_ID)
++    return -1;
++  const int index = profileManager->GetProfileIndex(params[0]);
++  CProfile* profile = index == INVALID_PROFILE_ID ? nullptr : profileManager->GetProfile(index);
++  if (profile == nullptr)
++    return -1;
++  profile->setName(params[1]);
++  profileManager->Save();
++  return 0;
++}
++
++/*! \brief Delete a profile (not the master profile, nor the one in use), asking whether its
++ *  files go too: BingeTV.DeleteProfile(name) */
++static int DeleteProfile(const std::vector<std::string>& params)
++{
++  const std::shared_ptr<CProfileManager> profileManager =
++      CServiceBroker::GetSettingsComponent()->GetProfileManager();
++  const int index = profileManager->GetProfileIndex(params[0]);
++  if (index == INVALID_PROFILE_ID || index == 0 ||
++      static_cast<uint32_t>(index) == profileManager->GetCurrentProfileIndex())
++    return -1;
++  return profileManager->DeleteProfile(index) ? 0 : -1;
++}
++
 +/*! \brief Show the profile picker (login screen) when Kodi starts: BingeTV.UseLoginScreen(true|false) */
 +static int UseLoginScreen(const std::vector<std::string>& params)
 +{
@@ -88,7 +118,7 @@ index 798b018..2cc2120 100644
  // Note: For new Texts with comma add a "\" before!!! Is used for table text.
  //
  /// \page page_List_of_built_in_functions
-@@ -135,6 +200,9 @@ CBuiltins::CommandMap CProfileBuiltins::GetOperations() const
+@@ -135,6 +230,11 @@ CBuiltins::CommandMap CProfileBuiltins::GetOperations() const
    return {
             {"loadprofile",   {"Load the specified profile (note; if locks are active it won't work)", 1, LoadProfile}},
             {"mastermode",    {"Control master mode", 0, MasterMode}},
@@ -96,6 +126,8 @@ index 798b018..2cc2120 100644
 +           {"system.logoff", {"Log off current user", 0, LogOff}},
 +           {"bingetv.addprofile", {"BingeTV: add a profile", 1, AddProfile}},
 +           {"bingetv.setprofilethumb", {"BingeTV: change a profile's picture", 1, SetProfileThumb}},
-+           {"bingetv.useloginscreen", {"BingeTV: profile picker at start-up", 1, UseLoginScreen}}
++           {"bingetv.useloginscreen", {"BingeTV: profile picker at start-up", 1, UseLoginScreen}},
++           {"bingetv.renameprofile", {"BingeTV: rename a profile", 2, RenameProfile}},
++           {"bingetv.deleteprofile", {"BingeTV: delete a profile", 1, DeleteProfile}}
           };
  }

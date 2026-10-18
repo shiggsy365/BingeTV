@@ -23,7 +23,7 @@ index 314548d..9f5b2f8 100644
 +  <addon optional="true">skin.bingetv</addon>
  </addons>
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 6d11670..27489a5 100755
+index 6d11670..c80a7a8 100755
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
 @@ -603,7 +603,7 @@
@@ -44,6 +44,15 @@ index 6d11670..27489a5 100755
            <dependencies>
              <dependency type="enable">
                <condition setting="services.esenabled" operator="is">true</condition>
+@@ -2651,7 +2651,7 @@
+       <group id="3" label="37047">
+         <setting id="services.wsdiscovery" type="boolean" label="37048" help="37049">
+           <level>2</level>
+-          <default>true</default>
++          <default>false</default>
+           <control type="toggle" />
+         </setting>
+       </group>
 @@ -4124,7 +4124,7 @@
        <group id="1" label="24997">
          <setting id="lookandfeel.skin" type="addon" label="166" help="36103">
