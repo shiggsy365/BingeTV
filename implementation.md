@@ -51,7 +51,7 @@ builds the APK.
 
 The skin itself isn't in the add-on repository: it ships inside the APK (phase 4).
 
-## Phase 4: BingeTV out of the box (built; needs a CI build and a test on the Stick)
+## Phase 4: BingeTV out of the box (built; Stremio Bridge 0.17.2; needs a test on the Stick)
 
 - **Built-in add-ons** (`tools/bundle_addons.py`, a build step):
   - From KodiStremioBridge, at the commit pinned in `config/build.env` (`OURS_REF`): Stremio
@@ -79,8 +79,6 @@ The skin itself isn't in the add-on repository: it ships inside the APK (phase 4
   itself.
 
 Still to do:
-- Release Stremio Bridge with the update notices and first-run offer, and pin `OURS_REF` to that
-  release's commit.
 - A CI build, then a fresh install on the Stick.
 
 ## Phase 5: speed and slimming
