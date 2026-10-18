@@ -13,7 +13,7 @@ index 4258ccf..56c102b 100644
        exclude '**/*.kotlin_builtins'
        exclude 'META-INF/kotlinx_coroutines*'
 diff --git a/xbmc/addons/binary-addons/AddonDll.cpp b/xbmc/addons/binary-addons/AddonDll.cpp
-index ea0b211..886e4ec 100644
+index ea0b211..61fdf27 100644
 --- a/xbmc/addons/binary-addons/AddonDll.cpp
 +++ b/xbmc/addons/binary-addons/AddonDll.cpp
 @@ -26,6 +26,9 @@
@@ -30,13 +30,13 @@ index ea0b211..886e4ec 100644
    {
      std::string tempbin = getenv("KODI_ANDROID_LIBS");
      strFileName = tempbin + "/" + strLibName;
-+    if (KODI::PLATFORM::ANDROID::ApkLibExists(strFileName)) // BingeTV: in the APK
++    if (KODI::APKLIBS::ApkLibExists(strFileName)) // BingeTV: in the APK
 +      return strFileName;
    }
  #elif defined(TARGET_DARWIN_EMBEDDED)
    if (!XFILE::CFile::Exists(strFileName))
 diff --git a/xbmc/cores/DllLoader/DllLoaderContainer.cpp b/xbmc/cores/DllLoader/DllLoaderContainer.cpp
-index 28242ce..7dfe871 100644
+index 28242ce..41de3eb 100644
 --- a/xbmc/cores/DllLoader/DllLoaderContainer.cpp
 +++ b/xbmc/cores/DllLoader/DllLoaderContainer.cpp
 @@ -18,6 +18,9 @@
@@ -54,7 +54,7 @@ index 28242ce..7dfe871 100644
        return pDll;
  
 +#if defined(TARGET_ANDROID)
-+    if (CFile::Exists(strPath) || KODI::PLATFORM::ANDROID::ApkLibExists(strPath)) // BingeTV: or in the APK
++    if (CFile::Exists(strPath) || KODI::APKLIBS::ApkLibExists(strPath)) // BingeTV: or in the APK
 +#else
      if (CFile::Exists(strPath))
 +#endif
@@ -63,7 +63,7 @@ index 28242ce..7dfe871 100644
  
 diff --git a/xbmc/platform/android/ApkLibs.h b/xbmc/platform/android/ApkLibs.h
 new file mode 100644
-index 0000000..432fec9
+index 0000000..e32fc59
 --- /dev/null
 +++ b/xbmc/platform/android/ApkLibs.h
 @@ -0,0 +1,54 @@
@@ -87,7 +87,7 @@ index 0000000..432fec9
 +
 +#include <dlfcn.h>
 +
-+namespace KODI::PLATFORM::ANDROID
++namespace KODI::APKLIBS
 +{
 +inline bool IsApkLibPath(const std::string& path)
 +{
@@ -120,9 +120,9 @@ index 0000000..432fec9
 +  return "x86";
 +#endif
 +}
-+} // namespace KODI::PLATFORM::ANDROID
++} // namespace KODI::APKLIBS
 diff --git a/xbmc/platform/android/activity/XBMCApp.cpp b/xbmc/platform/android/activity/XBMCApp.cpp
-index 7d1ab0f..2251502 100644
+index 7d1ab0f..cd476d2 100644
 --- a/xbmc/platform/android/activity/XBMCApp.cpp
 +++ b/xbmc/platform/android/activity/XBMCApp.cpp
 @@ -8,6 +8,8 @@
@@ -152,7 +152,7 @@ index 7d1ab0f..2251502 100644
 +  struct stat libStat;
 +  if (stat((libs + "/lib" + StringUtils::ToLower(CCompileInfo::GetAppName()) + ".so").c_str(),
 +           &libStat) != 0)
-+    libs = getPackageResourcePath() + "!/lib/" + KODI::PLATFORM::ANDROID::ApkLibAbi();
++    libs = getPackageResourcePath() + "!/lib/" + KODI::APKLIBS::ApkLibAbi();
 +  setenv("KODI_ANDROID_LIBS", libs.c_str(), 0);
    setenv("KODI_ANDROID_APK", getPackageResourcePath().c_str(), 0);
  
