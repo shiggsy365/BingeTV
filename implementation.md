@@ -88,7 +88,7 @@ BingeTV's data cleared:
 - `patches/0003` was needed: Android's packaging keeps only a skin's `Textures.xbt`, so the first
   build's skin had no images.
 
-## Phase 5: speed and slimming (in progress)
+## Phase 5: speed and slimming (nearly done)
 
 - **The reusable Python interpreter** (`patches/0004`):
   - **The crash:** with `reuselanguageinvoker` on, Kodi 22 crashed (SIGSEGV in
@@ -103,14 +103,18 @@ BingeTV's data cleared:
       from under its claimant.
     - BingeTV's Kodi turns reuse on for Stremio Bridge itself. The add-on doesn't ask for it in its
       `addon.xml`, because on plain Kodi it can still crash.
-  - Still to do: test on the Stick, with the old reproduction (fast Left/Right over Home's menu)
-    and timings.
+  - **Tested on 18 October 2026** on the Fire TV Stick with CI run 39137862369's APK:
+    - With reuse on, 34 of 36 Stremio Bridge calls reused the warm interpreter.
+    - No crash through any of the stress tests: 120 fast menu moves, 30 fast hub-tab moves,
+      10 Home/hub switches, and 10 bursts of 6 pages loading at once (60 of 60 loaded).
+    - Calls took a median of 136 ms (17 ms to 3.3 s), against 650–1,030 ms before. A burst of 6
+      pages takes about 1.1 s.
 - **Home rows straight away:** this mostly comes from the reusable interpreter (pages measured at
   120–310 ms instead of 650–1,030 ms) plus Stremio Bridge's pre-warmed catalogs. Measure once the
   build is in; anything still slow gets its own fix.
 - **"Preparing to play" page:** done (Stremio Bridge 0.17.0). It's taken down a minute after the
   hand-over if Kodi never starts the stream.
-- **Kodi 21's settings files** (Stremio Bridge, next release): Kodi 22 converts a Kodi 21
+- **Kodi 21's settings files** (needs a Stremio Bridge release): Kodi 22 converts a Kodi 21
   add-on settings file on every load until a setting is saved. Once per start, the service
   re-saves each such file. Tested on the Stick: Dispatcharr Bridge's file went from version 2 to 4.
 - **Unused Kodi add-ons removed** (`patches/0005`):
