@@ -1,0 +1,159 @@
+diff --git a/tools/android/packaging/xbmc/build.gradle.in b/tools/android/packaging/xbmc/build.gradle.in
+index 4258ccf..56c102b 100644
+--- a/tools/android/packaging/xbmc/build.gradle.in
++++ b/tools/android/packaging/xbmc/build.gradle.in
+@@ -49,7 +49,8 @@ android {
+     packagingOptions{
+       doNotStrip '**.setup'
+       jniLibs {
+-          useLegacyPackaging = true
++          // BingeTV: kept in the APK, not unpacked on install (see xbmc/platform/android/ApkLibs.h)
++          useLegacyPackaging = false
+       }
+       exclude '**/*.kotlin_builtins'
+       exclude 'META-INF/kotlinx_coroutines*'
+diff --git a/xbmc/addons/binary-addons/AddonDll.cpp b/xbmc/addons/binary-addons/AddonDll.cpp
+index ea0b211..886e4ec 100644
+--- a/xbmc/addons/binary-addons/AddonDll.cpp
++++ b/xbmc/addons/binary-addons/AddonDll.cpp
+@@ -26,6 +26,9 @@
+ #include "utils/URIUtils.h"
+ #include "utils/Variant.h"
+ #include "utils/log.h"
++#if defined(TARGET_ANDROID)
++#include "platform/android/ApkLibs.h"
++#endif
+ 
+ #if defined(TARGET_DARWIN_EMBEDDED)
+ #include "platform/darwin/ios-common/DarwinEmbedUtils.h"
+@@ -94,6 +97,8 @@ std::string CAddonDll::GetDllPath(const std::string &libPath)
+   {
+     std::string tempbin = getenv("KODI_ANDROID_LIBS");
+     strFileName = tempbin + "/" + strLibName;
++    if (KODI::PLATFORM::ANDROID::ApkLibExists(strFileName)) // BingeTV: in the APK
++      return strFileName;
+   }
+ #elif defined(TARGET_DARWIN_EMBEDDED)
+   if (!XFILE::CFile::Exists(strFileName))
+diff --git a/xbmc/cores/DllLoader/DllLoaderContainer.cpp b/xbmc/cores/DllLoader/DllLoaderContainer.cpp
+index 28242ce..7dfe871 100644
+--- a/xbmc/cores/DllLoader/DllLoaderContainer.cpp
++++ b/xbmc/cores/DllLoader/DllLoaderContainer.cpp
+@@ -18,6 +18,9 @@
+ #include "utils/StringUtils.h"
+ #include "utils/URIUtils.h"
+ #include "utils/log.h"
++#if defined(TARGET_ANDROID)
++#include "platform/android/ApkLibs.h"
++#endif
+ 
+ #if defined(TARGET_WINDOWS)
+ #define ENV_PARTIAL_PATH \
+@@ -172,7 +175,11 @@ LibraryLoader* DllLoaderContainer::FindModule(const char* sName, const char* sCu
+     if ((pDll = GetModule(strPath.c_str())) != NULL)
+       return pDll;
+ 
++#if defined(TARGET_ANDROID)
++    if (CFile::Exists(strPath) || KODI::PLATFORM::ANDROID::ApkLibExists(strPath)) // BingeTV: or in the APK
++#else
+     if (CFile::Exists(strPath))
++#endif
+       return LoadDll(strPath.c_str(), bLoadSymbols);
+   }
+ 
+diff --git a/xbmc/platform/android/ApkLibs.h b/xbmc/platform/android/ApkLibs.h
+new file mode 100644
+index 0000000..432fec9
+--- /dev/null
++++ b/xbmc/platform/android/ApkLibs.h
+@@ -0,0 +1,54 @@
++/*
++ *  Copyright (C) 2026 BingeTV
++ *  This file is part of Kodi - https://kodi.tv
++ *
++ *  SPDX-License-Identifier: GPL-2.0-or-later
++ *  See LICENSES/README.md for more information.
++ */
++
++#pragma once
++
++// BingeTV: the native libraries stay inside the APK instead of being unpacked on install (they
++// are stored uncompressed and page-aligned, and the dynamic linker loads them from there),
++// which saves their size again on the device. Their paths then look like
++// /data/app/<package>/base.apk!/lib/<abi>/libX.so, which the file system can't see, so whether
++// one is there is asked of the dynamic linker.
++
++#include <string>
++
++#include <dlfcn.h>
++
++namespace KODI::PLATFORM::ANDROID
++{
++inline bool IsApkLibPath(const std::string& path)
++{
++  return path.find(".apk!/") != std::string::npos;
++}
++
++inline bool ApkLibExists(const std::string& path)
++{
++  if (!IsApkLibPath(path))
++    return false;
++  void* handle = dlopen(path.c_str(), RTLD_LAZY | RTLD_NOLOAD);
++  if (handle == nullptr)
++    handle = dlopen(path.c_str(), RTLD_LAZY);
++  if (handle == nullptr)
++    return false;
++  dlclose(handle);
++  return true;
++}
++
++// The ABI folder of the APK's libraries this build is for
++inline const char* ApkLibAbi()
++{
++#if defined(__aarch64__)
++  return "arm64-v8a";
++#elif defined(__arm__)
++  return "armeabi-v7a";
++#elif defined(__x86_64__)
++  return "x86_64";
++#else
++  return "x86";
++#endif
++}
++} // namespace KODI::PLATFORM::ANDROID
+diff --git a/xbmc/platform/android/activity/XBMCApp.cpp b/xbmc/platform/android/activity/XBMCApp.cpp
+index 7d1ab0f..2251502 100644
+--- a/xbmc/platform/android/activity/XBMCApp.cpp
++++ b/xbmc/platform/android/activity/XBMCApp.cpp
+@@ -8,6 +8,8 @@
+ 
+ #include "XBMCApp.h"
+ 
++#include "platform/android/ApkLibs.h"
++
+ #include "AndroidKey.h"
+ #include "CompileInfo.h"
+ #include "FileItem.h"
+@@ -70,6 +72,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <time.h>
++#include <sys/stat.h>
+ 
+ #include <android/bitmap.h>
+ #include <android/configuration.h>
+@@ -1547,7 +1550,13 @@ bool CXBMCApp::WaitVSync(unsigned int milliSeconds)
+ void CXBMCApp::SetupEnv()
+ {
+   setenv("KODI_ANDROID_SYSTEM_LIBS", CJNISystem::getProperty("java.library.path").c_str(), 0);
+-  setenv("KODI_ANDROID_LIBS", getApplicationInfo().nativeLibraryDir.c_str(), 0);
++  // BingeTV: the libraries' folder, or inside the APK when they weren't unpacked (ApkLibs.h)
++  std::string libs = getApplicationInfo().nativeLibraryDir;
++  struct stat libStat;
++  if (stat((libs + "/lib" + StringUtils::ToLower(CCompileInfo::GetAppName()) + ".so").c_str(),
++           &libStat) != 0)
++    libs = getPackageResourcePath() + "!/lib/" + KODI::PLATFORM::ANDROID::ApkLibAbi();
++  setenv("KODI_ANDROID_LIBS", libs.c_str(), 0);
+   setenv("KODI_ANDROID_APK", getPackageResourcePath().c_str(), 0);
+ 
+   std::string appName = CCompileInfo::GetAppName();
