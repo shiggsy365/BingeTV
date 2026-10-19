@@ -13,6 +13,10 @@ Reads config/build.env (passed in the environment by scripts/build-android.sh):
 - BINGETV_VERSION: written to media/bingetv.json, which Stremio Bridge reads to
   tell you when a newer BingeTV is out.
 
+patches/addons/<id>/*.patch are applied to these add-ons once they're in place
+(binary add-ons' patches are applied by scripts/build-android.sh instead). A patch
+that no longer applies, say after the add-on's update, stops the build.
+
 Each add-on goes into <kodi source>/addons/<id>/ and is listed in
 cmake/installdata/common/addons.txt, so it's packed into the APK. A skin isn't
 listed: patches/0003 has Kodi pack its media/ into Textures.xbt, as for Estuary
@@ -32,6 +36,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
 
+PATCHES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "patches", "addons")
 SKIP_NAMES = {"__pycache__", ".git", ".github", "tests", ".pytest_cache"}
 SKIP_SUFFIXES = (".pyc", ".pyo")
 
@@ -97,6 +102,17 @@ def kodi_repo_addons(kodi, wanted, skip):
     return done
 
 
+def apply_patches(kodi, addons):
+    for addon in addons:
+        folder = os.path.join(PATCHES, addon)
+        if not os.path.isdir(folder):
+            continue
+        for name in sorted(n for n in os.listdir(folder) if n.endswith(".patch")):
+            subprocess.run(["patch", "-p1", "--forward", "--batch", "-d", os.path.join(kodi, "addons", addon),
+                            "-i", os.path.join(folder, name)], check=True)
+            print(f"{addon}: applied {name}")
+
+
 def list_in_apk(kodi, addons):
     path = os.path.join(kodi, "cmake", "installdata", "common", "addons.txt")
     with open(path, encoding="utf-8") as f:
@@ -122,6 +138,7 @@ def main():
     kodi = sys.argv[1]
     bundled = our_addons(kodi, env_list("OURS_ADDONS"))
     bundled += kodi_repo_addons(kodi, env_list("KODI_REPO_ADDONS"), env_list("BINARY_ADDONS"))
+    apply_patches(kodi, bundled)
     list_in_apk(kodi, bundled)
     write_version(kodi)
 
