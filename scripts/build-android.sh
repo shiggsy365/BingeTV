@@ -118,8 +118,15 @@ for id in $PATCHED_ADDONS; do
     echo "Applying $(basename "$patch")"
     git -C "$ADDON_SRC/$id" apply --whitespace=nowarn "$patch"
   done
-  rm -f "$SRC"/tools/depends/target/binary-addons/.installed-*  # it only builds once otherwise
-  make -j"$JOBS" -C "$SRC/tools/depends/target/binary-addons" ADDONS="$id" ADDON_SRC_PREFIX="$ADDON_SRC"
+  # In a build folder of its own (PLATFORM): the first pass's folder has its dependencies
+  # (zlib, ...) already patched, and patching them again fails
+  make -j"$JOBS" -C "$SRC/tools/depends/target/binary-addons" ADDONS="$id" ADDON_SRC_PREFIX="$ADDON_SRC" \
+    PLATFORM="patched-$id"
+  # Kodi's add-on build carries on past a failed add-on (it notes it in .failure): a patched
+  # one that failed must stop the build here rather than leave an APK without it
+  if grep -qx "$id" "$SRC/cmake/addons/.failure" 2>/dev/null || ! grep -qx "$id" "$SRC/cmake/addons/.success" 2>/dev/null; then
+    echo "$id failed to build"; exit 1
+  fi
 done
 
 step "Kodi"
