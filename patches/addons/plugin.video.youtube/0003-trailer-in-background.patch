@@ -1,0 +1,65 @@
+--- a/resources/lib/youtube_plugin/kodion/plugin/xbmc/xbmc_plugin.py	2026-10-19 19:05:47.970020902 +0100
++++ b/resources/lib/youtube_plugin/kodion/plugin/xbmc/xbmc_plugin.py	2026-10-19 19:05:47.985853056 +0100
+@@ -343,9 +343,15 @@
+                     result_item,
+                     show_fanart=show_fanart,
+                 )
+-                xbmcplugin.setResolvedUrl(
+-                    handle, succeeded=True, listitem=item
+-                )
++                if handle == -1 and context.get_params().get('screensaver'):
++                    # BingeTV: a Home trailer, resolved in the background (RunPlugin): the
++                    # stream is left for BingeTV to play itself, so Kodi never shows its
++                    # input-blocking busy dialog while YouTube works
++                    _bingetv_trailer_stream(item)
++                else:
++                    xbmcplugin.setResolvedUrl(
++                        handle, succeeded=True, listitem=item
++                    )
+         elif not items or force_return:
+             ui.clear_property(BUSY_FLAG)
+             ui.clear_property(TRAKT_PAUSE_FLAG, raw=True)
+@@ -615,3 +621,30 @@
+                       uri=log_uri,
+                       stacklevel=2)
+         return result, action
++
++
++_BINGETV_PROPS = (
++    'inputstream',
++    'inputstream.adaptive.manifest_headers',
++    'inputstream.adaptive.stream_headers',
++    'inputstream.adaptive.stream_selection_type',
++    'inputstream.adaptive.chooser_resolution_max',
++    'inputstream.adaptive.config',
++)
++
++
++def _bingetv_trailer_stream(item):
++    """BingeTV: the resolved trailer for its Home (Window(Home).Property(bingetv.trailer_stream))."""
++    from json import dumps
++
++    path = item.getPath()
++    props = {key: item.getProperty(key) for key in _BINGETV_PROPS if item.getProperty(key)}
++    if props.get('inputstream'):
++        mime = 'application/x-mpegURL'
++    elif 'mime=' in path:
++        mime = path.split('mime=', 1)[1].split('&', 1)[0].replace('%2F', '/')
++    else:
++        mime = ''
++    xbmcgui.Window(10000).setProperty('bingetv.trailer_stream', dumps({
++        'path': path, 'props': props, 'mime': mime,
++    }))
+--- a/resources/lib/youtube_plugin/youtube/helper/yt_play.py	2026-10-19 19:05:47.968292017 +0100
++++ b/resources/lib/youtube_plugin/youtube/helper/yt_play.py	2026-10-19 19:09:26.388969677 +0100
+@@ -565,7 +565,9 @@
+         for param in force_play_params:
+             ui.set_property(param, params.pop(param, None), as_bool=True)
+ 
+-        if context.get_handle() == -1:
++        # BingeTV: a Home trailer found in the background (RunPlugin, screensaver): resolved
++        # here, its stream handed back (xbmc_plugin.py), not played through Kodi
++        if context.get_handle() == -1 and not params.get(SCREENSAVER):
+             # This is required to trigger Kodi resume prompt, along with using
+             # RunPlugin. Prompt will not be used if using PlayMedia, however
+             # Action(Play) does not work in non-video windows

@@ -1,0 +1,18 @@
+diff --git a/xbmc/application/ApplicationMessageHandling.cpp b/xbmc/application/ApplicationMessageHandling.cpp
+index 5d11805..6cae250 100644
+--- a/xbmc/application/ApplicationMessageHandling.cpp
++++ b/xbmc/application/ApplicationMessageHandling.cpp
+@@ -554,8 +554,11 @@ bool CApplicationMessageHandling::OnMessage(const CGUIMessage& message)
+ 
+       // we don't want a busy dialog when switching channels
+       const auto appPlayer = m_app.GetComponent<CApplicationPlayer>();
+-      if (!m_app.CurrentFileItem().IsLiveTV() ||
+-          (!appPlayer->IsPlayingVideo() && !appPlayer->IsPlayingAudio()))
++      // BingeTV: nor for a trailer playing in a window on Home: the busy dialog would take the
++      // remote's keys while the trailer opens (Stremio Bridge's hometrailer.py marks it)
++      if ((!m_app.CurrentFileItem().IsLiveTV() ||
++           (!appPlayer->IsPlayingVideo() && !appPlayer->IsPlayingAudio())) &&
++          !m_app.CurrentFileItem().GetProperty("BingeTVTrailer").asBoolean())
+         CGUIDialogBusy::WaitOnEvent(m_app.m_playerEvent);
+ 
+       return true;
