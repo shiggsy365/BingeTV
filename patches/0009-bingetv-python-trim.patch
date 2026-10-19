@@ -1,8 +1,20 @@
 diff --git a/tools/android/packaging/Makefile.in b/tools/android/packaging/Makefile.in
-index a1cdf7f..a6e479a 100644
+index a1cdf7f..81d5e5f 100644
 --- a/tools/android/packaging/Makefile.in
 +++ b/tools/android/packaging/Makefile.in
-@@ -62,6 +62,8 @@ python: | xbmc/assets
+@@ -53,6 +53,11 @@ shared:
+ 	find `pwd`/assets/ -name "*.so" -exec rm {} \;
+ 	find `pwd`/assets/addons/skin.*/media/* -depth -not -iname "*.xbt" -exec rm -rf {} \;
+ 	cd `pwd`/assets/addons; rm -rf $(EXCLUDED_ADDONS)
++	# BingeTV: English only (add-ons' other translations), and nothing that only add-on store
++	# pages or the removed games feature use; script.module.pil loads from lib/ (a second copy)
++	find `pwd`/assets/addons/*/resources/language -mindepth 1 -maxdepth 1 -type d ! -name resource.language.en_gb ! -name English -exec rm -rf {} + || true
++	find `pwd`/assets/addons/*/resources -name "screenshot*" -type f -delete || true
++	rm -rf `pwd`/assets/media/qr/games `pwd`/assets/addons/script.module.pil/PIL
+ 	cp $(CMAKE_SOURCE_DIR)/privacy-policy.txt assets
+ 
+ sharedapk: shared | xbmc/assets
+@@ -62,6 +67,8 @@ python: | xbmc/assets
  	mkdir -p xbmc/assets/python@PYTHON_VERSION@/lib/
  	cp -rfp $(PREFIX)/lib/python@PYTHON_VERSION@ xbmc/assets/python@PYTHON_VERSION@/lib/
  	cd xbmc/assets/python@PYTHON_VERSION@/lib/python@PYTHON_VERSION@/; rm -rf test config config-@PYTHON_VERSION@ lib-dynload ; find . -name "*.so" -exec rm -f {} \;

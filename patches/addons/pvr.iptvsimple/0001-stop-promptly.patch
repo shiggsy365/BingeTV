@@ -1,0 +1,17 @@
+diff --git a/src/IptvSimple.cpp b/src/IptvSimple.cpp
+index 02383e5..7f60a72 100644
+--- a/src/IptvSimple.cpp
++++ b/src/IptvSimple.cpp
+@@ -140,7 +140,11 @@ void IptvSimple::Process()
+ 
+   while (m_running)
+   {
+-    std::this_thread::sleep_for(std::chrono::milliseconds(PROCESS_LOOP_WAIT_SECS * 1000));
++    // BingeTV: in short steps, so stopping (e.g. on a profile switch) doesn't wait out the loop
++    for (int waitedMs = 0; m_running && waitedMs < PROCESS_LOOP_WAIT_SECS * 1000; waitedMs += 100)
++      std::this_thread::sleep_for(std::chrono::milliseconds(100));
++    if (!m_running)
++      break;
+ 
+     time_t currentRefreshTimeSeconds = std::time(nullptr);
+     std::tm timeInfo = SafeLocaltime(currentRefreshTimeSeconds);

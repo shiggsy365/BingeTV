@@ -92,8 +92,35 @@ if [ "${DEBUG_BUILD:-0}" = 1 ]; then debug=--enable-debug; else debug=--disable-
   --with-sdk-path="$SDK" --with-ndk-path="$NDK" --prefix="$WORK_DIR/depends" "$debug"
 make -j"$JOBS"
 
-step "Binary add-ons: $BINARY_ADDONS"
-make -j"$JOBS" -C "$SRC/tools/depends/target/binary-addons" ADDONS="$BINARY_ADDONS"
+# Binary add-ons with patches of ours (patches/addons/<id>/*.patch) are built from a local
+# copy of their source: the branch Kodi's add-on list pins, with the patches applied. The
+# rest are fetched and built by Kodi's own add-on build as usual.
+PATCHED_ADDONS=""
+for dir in "$ROOT"/patches/addons/*/; do
+  id=$(basename "$dir")
+  case " $BINARY_ADDONS " in *" $id "*) PATCHED_ADDONS="$PATCHED_ADDONS $id" ;; esac
+done
+PLAIN_ADDONS=$(for id in $BINARY_ADDONS; do case " $PATCHED_ADDONS " in *" $id "*) ;; *) echo "$id" ;; esac; done | xargs)
+ADDON_SRC="$WORK_DIR/addon-src"
+read -r _ _ KODI_ADDONS_BRANCH < "$SRC/cmake/addons/bootstrap/repositories/binary-addons.txt"  # e.g. Piers
+
+step "Binary add-ons: $PLAIN_ADDONS"
+make -j"$JOBS" -C "$SRC/tools/depends/target/binary-addons" ADDONS="$PLAIN_ADDONS"
+
+for id in $PATCHED_ADDONS; do
+  step "Binary add-on $id, patched"
+  # e.g. "pvr.iptvsimple https://github.com/kodi-pvr/pvr.iptvsimple Piers"
+  read -r _ url ref < <(curl -fsSL "https://raw.githubusercontent.com/xbmc/repo-binary-addons/$KODI_ADDONS_BRANCH/$id/$id.txt")
+  rm -rf "$ADDON_SRC/$id"
+  git clone -q --depth 1 --branch "$ref" "$url" "$ADDON_SRC/$id"
+  echo "$id at $(git -C "$ADDON_SRC/$id" rev-parse --short HEAD)"
+  for patch in "$ROOT"/patches/addons/"$id"/*.patch; do
+    echo "Applying $(basename "$patch")"
+    git -C "$ADDON_SRC/$id" apply --whitespace=nowarn "$patch"
+  done
+  rm -f "$SRC"/tools/depends/target/binary-addons/.installed-*  # it only builds once otherwise
+  make -j"$JOBS" -C "$SRC/tools/depends/target/binary-addons" ADDONS="$id" ADDON_SRC_PREFIX="$ADDON_SRC"
+done
 
 step "Kodi"
 make -C "$SRC/tools/depends/target/cmakebuildsys" BUILD_DIR="$BUILD"
