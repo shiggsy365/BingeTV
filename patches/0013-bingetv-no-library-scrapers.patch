@@ -1,0 +1,35 @@
+diff --git a/cmake/installdata/common/addons.txt b/cmake/installdata/common/addons.txt
+index 010b627..df520f5 100644
+--- a/cmake/installdata/common/addons.txt
++++ b/cmake/installdata/common/addons.txt
+@@ -6,13 +6,8 @@ addons/kodi.inputstream/*
+ addons/kodi.peripheral/*
+ addons/kodi.resource/*
+ addons/kodi.vfs/*
+-addons/metadata.common.htbackdrops.com/*
+-addons/metadata.local/*
+-addons/metadata.themoviedb.org.python/*
+-addons/metadata.tvshows.themoviedb.org.python/*
+ addons/repository.xbmc.org/*
+ addons/resource.language.en_gb/*
+-addons/resource.uisounds.kodi/*
+ addons/screensaver.xbmc.builtin.black/*
+ addons/screensaver.xbmc.builtin.dim/*
+ addons/script.module.pil/*
+diff --git a/system/addon-manifest.xml b/system/addon-manifest.xml
+index 1c1fa81..1cd2faf 100644
+--- a/system/addon-manifest.xml
++++ b/system/addon-manifest.xml
+@@ -20,12 +20,8 @@
+   <addon>kodi.binary.instance.videocodec</addon>
+   <addon>kodi.binary.instance.visualization</addon>
+   <addon>kodi.resource</addon>
+-  <addon>metadata.local</addon>
+-  <addon>metadata.themoviedb.org.python</addon>
+-  <addon>metadata.tvshows.themoviedb.org.python</addon>
+   <addon>repository.xbmc.org</addon>
+   <addon>resource.language.en_gb</addon>
+-  <addon>resource.uisounds.kodi</addon>
+   <addon>screensaver.xbmc.builtin.black</addon>
+   <addon>screensaver.xbmc.builtin.dim</addon>
+   <addon>script.module.pil</addon>

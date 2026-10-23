@@ -1,8 +1,8 @@
 diff --git a/system/addon-manifest.xml b/system/addon-manifest.xml
-index 314548d..9f5b2f8 100644
+index 314548d..3c6493d 100644
 --- a/system/addon-manifest.xml
 +++ b/system/addon-manifest.xml
-@@ -57,4 +57,18 @@
+@@ -57,4 +57,19 @@
    <addon optional="true">inputstream.adaptive</addon>
    <addon optional="true">peripheral.joystick</addon>
    <addon optional="true">service.xbmc.versioncheck</addon>
@@ -11,6 +11,7 @@ index 314548d..9f5b2f8 100644
 +  <addon optional="true">inputstream.rtmp</addon>
 +  <addon optional="true">plugin.video.stremiobridge</addon>
 +  <addon optional="true">repository.shiggsy365</addon>
++  <addon optional="true">resource.uisounds.fromashes</addon>
 +  <addon optional="true">script.module.chardet</addon>
 +  <addon optional="true">script.module.idna</addon>
 +  <addon optional="true">script.module.requests</addon>
@@ -22,7 +23,7 @@ index 314548d..9f5b2f8 100644
 +  <addon optional="true">skin.bingetv</addon>
  </addons>
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 6d11670..c80a7a8 100755
+index 6d11670..d1cd94f 100755
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
 @@ -603,7 +603,7 @@
@@ -52,6 +53,15 @@ index 6d11670..c80a7a8 100755
            <control type="toggle" />
          </setting>
        </group>
+@@ -3481,7 +3481,7 @@
+         </setting>
+         <setting id="lookandfeel.soundskin" type="addon" label="24006" help="36110">
+           <level>0</level>
+-          <default>resource.uisounds.kodi</default>
++          <default>resource.uisounds.fromashes</default>
+           <dependencies>
+             <dependency type="enable" setting="audiooutput.guisoundmode" operator="!is">0</dependency>
+           </dependencies>
 @@ -4124,7 +4124,7 @@
        <group id="1" label="24997">
          <setting id="lookandfeel.skin" type="addon" label="166" help="36103">

@@ -59,6 +59,9 @@ The skin itself isn't in the add-on repository: it ships inside the APK (phase 4
   - From Kodi's own repository for Piers: Up Next, and the Python modules requests, urllib3,
     certifi, chardet and idna (Stremio Bridge needs certifi; add-ons such as Podcasts expect the
     rest). Not YouTube: Stremio Bridge plays YouTube trailers itself.
+  - Also from there: the Arctic Zephyr "From Ashes" UI sounds, Kodi's default sound pack here
+    (`patches/0002`). `patches/0013` leaves Kodi's own UI sounds and its video library scrapers
+    (TMDB movies and TV, Local information only) out: Stremio Bridge doesn't use Kodi's library.
   - `patches/0002-bingetv-defaults.patch` lists them in `system/addon-manifest.xml` as optional
     system add-ons. Kodi turns those on at the first start, and they can still be updated,
     disabled or removed. Anything bundled but not listed would start disabled.
