@@ -2,7 +2,7 @@ diff --git a/system/addon-manifest.xml b/system/addon-manifest.xml
 index 314548d..9f5b2f8 100644
 --- a/system/addon-manifest.xml
 +++ b/system/addon-manifest.xml
-@@ -57,4 +57,19 @@
+@@ -57,4 +57,18 @@
    <addon optional="true">inputstream.adaptive</addon>
    <addon optional="true">peripheral.joystick</addon>
    <addon optional="true">service.xbmc.versioncheck</addon>
@@ -10,7 +10,6 @@ index 314548d..9f5b2f8 100644
 +  <addon optional="true">inputstream.ffmpegdirect</addon>
 +  <addon optional="true">inputstream.rtmp</addon>
 +  <addon optional="true">plugin.video.stremiobridge</addon>
-+  <addon optional="true">plugin.video.youtube</addon>
 +  <addon optional="true">repository.shiggsy365</addon>
 +  <addon optional="true">script.module.chardet</addon>
 +  <addon optional="true">script.module.idna</addon>

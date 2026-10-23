@@ -21,7 +21,7 @@ keep requiring `xbmc.python` 3.0.1, so the same releases run on Kodi 21 and 22.
 | Podcasts | 1.0.5 | Main menu | Works |
 | shiggsy365 repository | 1.0.2 | Enabled | Works |
 | Up Next (official repo) | 1.1.9 | Pop-up near the end of an episode, then playing the next one | Works |
-| YouTube (official repo) | 7.4.4 | Main menu | Works. Its first run logs harmless errors about settings files it hasn't created yet. |
+| YouTube (official repo) | 7.4.4 | Main menu | Worked; no longer bundled (Stremio Bridge plays YouTube trailers itself). |
 | IPTV Simple (built in) | 22.6.5 | Your Kodi 21 settings: 214 channels, 6 groups, 5,300 guide entries; playing a channel | Works |
 
 ## For later phases

@@ -1,0 +1,23 @@
+diff --git a/xbmc/interfaces/legacy/Player.cpp b/xbmc/interfaces/legacy/Player.cpp
+index 91105ff..6dec721 100644
+--- a/xbmc/interfaces/legacy/Player.cpp
++++ b/xbmc/interfaces/legacy/Player.cpp
+@@ -156,12 +156,18 @@ namespace XBMCAddon
+     void Player::stop()
+     {
+       XBMC_TRACE;
++      // BingeTV: not holding Python's lock while the main thread closes the video: closing it,
++      // Kodi can ask a Python add-on's local server about it (YouTube's MPEG-DASH), which
++      // couldn't answer: the UI frozen for curl's timeouts, 20 s at a time
++      DelayedCallGuard dc(languageHook);
+       CServiceBroker::GetAppMessenger()->SendMsg(TMSG_MEDIA_STOP);
+     }
+ 
+     void Player::pause()
+     {
+       XBMC_TRACE;
++      // BingeTV: not holding Python's lock while the main thread does it (as stop)
++      DelayedCallGuard dc(languageHook);
+       CServiceBroker::GetAppMessenger()->SendMsg(TMSG_MEDIA_PAUSE);
+     }
+ 

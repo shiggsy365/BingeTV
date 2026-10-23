@@ -56,8 +56,9 @@ The skin itself isn't in the add-on repository: it ships inside the APK (phase 4
 - **Built-in add-ons** (`tools/bundle_addons.py`, a build step):
   - From KodiStremioBridge, at the commit pinned in `config/build.env` (`OURS_REF`): Stremio
     Bridge, `skin.bingetv`, Dispatcharr Bridge, Tidy Cache and the shiggsy365 repository.
-  - From Kodi's own repository for Piers: Up Next and YouTube, with the Python modules YouTube
-    needs (requests, urllib3, certifi, chardet, idna).
+  - From Kodi's own repository for Piers: Up Next, and the Python modules requests, urllib3,
+    certifi, chardet and idna (Stremio Bridge needs certifi; add-ons such as Podcasts expect the
+    rest). Not YouTube: Stremio Bridge plays YouTube trailers itself.
   - `patches/0002-bingetv-defaults.patch` lists them in `system/addon-manifest.xml` as optional
     system add-ons. Kodi turns those on at the first start, and they can still be updated,
     disabled or removed. Anything bundled but not listed would start disabled.

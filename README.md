@@ -41,7 +41,7 @@ This isn't a fork of Kodi's whole repository. It holds only what BingeTV changes
 - `.github/workflows/android.yml`: builds both APKs on GitHub Actions.
 - `tools/bundle_addons.py`: puts the built-in add-ons into Kodi's source before it's built
   (Stremio Bridge, the BingeTV skin and the rest, from KodiStremioBridge at `OURS_REF`; Up Next
-  and YouTube from Kodi's repository).
+  from Kodi's repository).
 - `tools/publish_release.py`: publishes a CI build's two APKs as a GitHub release.
 - `tools/make_branding.py`: draws BingeTV's icons, banners and splash screens into `overlay/`.
   Kodi's logo and name are the XBMC Foundation's trademarks, so none of Kodi's are shipped.

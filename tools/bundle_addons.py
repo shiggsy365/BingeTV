@@ -8,7 +8,7 @@ Reads config/build.env (passed in the environment by scripts/build-android.sh):
 - OURS_REPO, OURS_REF, OURS_ADDONS: add-ons from the KodiStremioBridge repository,
   at a pinned commit (Stremio Bridge, the BingeTV skin, ...).
 - KODI_REPO_ADDONS, KODI_ADDON_MIRROR: add-ons from Kodi's own repository for this
-  release (Up Next, YouTube), with the Python modules they need. Anything Kodi
+  release (Up Next), with the Python modules they need. Anything Kodi
   already has, or that's built as a binary add-on (BINARY_ADDONS), is left out.
 - BINGETV_VERSION: written to media/bingetv.json, which Stremio Bridge reads to
   tell you when a newer BingeTV is out.
